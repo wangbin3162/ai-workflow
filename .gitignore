@@ -1,8 +1,10 @@
-# 循环运行时产物（worktree 默认在仓库外 ../wt，若改到仓库内请加 /wt/）
+# 循环运行时产物（worktree 默认在仓库内 .worktrees/）
 .ai-locks/
 .ai-logs/
+.worktrees/
 *.result.json
 *.tmp
+*.tmp.*
 *.log
 
 # 系统 / 编辑器

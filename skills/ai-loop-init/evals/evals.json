@@ -1,0 +1,49 @@
+{
+  "skill_name": "ai-loop-init",
+  "evals": [
+    {
+      "id": 1,
+      "name": "fresh-node-repo",
+      "prompt": "这个工程是个很小的 node 项目，帮我初始化一套 AI 任务池工作流（AGENTS.md、错题本、任务池、ai-loop 脚本那一套）。别帮我提交。",
+      "fixture": "node 项目：README.md、package.json（scripts.test = node --test）、一个 test 文件、pnpm-lock.yaml，已有 1 个提交，没有任何 agent 规则文件",
+      "expected_output": "全部文件创建；占位符填完；AGENTS.md 里的测试命令是真实可跑的；没有 legacy 目录；没有提交",
+      "assertions": [
+        "scripts/verify.sh 退出码为 0",
+        "AGENTS.md 和 docs/code-standards.md 里没有 {{ 占位符",
+        "AGENTS.md「构建与测试」里写的测试命令确实存在于 package.json（node --test 或 npm test），没有编造命令",
+        ".ai/loop.env 里没有取消注释的、未经验证的命令",
+        "git log 仍只有初始那 1 个提交（没有自动提交）",
+        "没有创建 docs/legacy/"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "existing-agents-and-claude",
+      "prompt": "帮我给这个 python 工程初始化 AI 任务池工作流。我已经有 AGENTS.md 和 CLAUDE.md 了，别弄丢我原来的内容。（你无法实时问我确认：把计划里的 MOVE/REPLACE 视为我已确认。）",
+      "fixture": "python 项目：已提交的 AGENTS.md（含 python3 -m unittest 命令和 2 条项目红线）、CLAUDE.md（@AGENTS.md 加 @docs/extra.md）、server/AGENTS.md、.cursorrules、docs/code-standards.md（含一条旧标准）、.gitignore",
+      "expected_output": "原文件逐字节搬到 docs/legacy/；新 AGENTS.md 引用它们；项目红线被提炼进新 AGENTS.md 且保留到 legacy 的链接；旧 code-standards 的有效标准被合并；子目录和其他工具的规则文件未改动",
+      "assertions": [
+        "docs/legacy/AGENTS.md、docs/legacy/CLAUDE.md、docs/legacy/code-standards.md 与原文件逐字节一致",
+        "新 AGENTS.md 含 ai-loop-init:v1 标记，并链接 docs/legacy/ 下的三个文件、server/AGENTS.md、.cursorrules",
+        "server/AGENTS.md 和 .cursorrules 内容未改动",
+        "原 AGENTS.md 里的两条项目红线出现在新 AGENTS.md 里（提炼，不是整段复制）",
+        "新 docs/code-standards.md 合并了旧文件里的那条标准，或在 TODO: 里说明了未合并的原因",
+        "CLAUDE.md 内容为 @AGENTS.md",
+        "scripts/verify.sh 退出码为 0",
+        "git log 没有新提交"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "dirty-agents-md-stops",
+      "prompt": "给这个工程初始化 AI 任务池工作流。",
+      "fixture": "git 仓库，AGENTS.md 已提交，但工作区里对它有未提交的改动",
+      "expected_output": "停下来，说明原因（AGENTS.md 有未提交改动）和最小解法；不改任何文件",
+      "assertions": [
+        "git status --porcelain 与运行前完全一致（没有任何新文件、没有改动）",
+        "回复明确说明因为 AGENTS.md 有未提交改动而停止",
+        "回复给出最小解法（先提交或暂存），没有建议绕过检查"
+      ]
+    }
+  ]
+}

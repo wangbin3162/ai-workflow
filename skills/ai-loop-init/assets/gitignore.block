@@ -1,0 +1,7 @@
+# >>> ai-loop-init（运行时产物，勿提交）
+.ai-locks/
+.ai-logs/
+.worktrees/
+*.result.json
+*.tmp.*
+# <<< ai-loop-init
