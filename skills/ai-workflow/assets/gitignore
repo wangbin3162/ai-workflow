@@ -1,0 +1,8 @@
+# ai-workflow 运行时产物（位于本目录内；不要提交）
+worktrees/
+locks/
+logs/
+*.result.json
+*.stderr.log
+*.setup.log
+*.tmp.*

@@ -1,60 +1,70 @@
-# ai-loop-starter
+# ai-workflow
 
-用本地 markdown 任务池驱动 AI 循环的最小骨架：任务写进 `.ai/inbox/`，agent 在独立 git worktree 里实现，
-结果进 `.ai/review/` 等人工审查合并。支持两种运行方式：
+用一个**用户手写**的 markdown 任务池驱动 AI 编码会话：任务写进 `.ai-workflow/inbox/`，
+agent 在独立 git worktree 里探索、讨论、实现、验证，结果进 `.ai-workflow/review/` 等人审。
+**合并、push、发版永远由人做。**
 
-- Claude Code 交互会话内的 `/loop`（状态归 agent 管）
-- `scripts/ai-loop.sh`（`claude -p` 无人值守，每次一个任务，状态归脚本管）
+项目原名 `ai-loop-starter`；现在对外只有一个技能入口：**`/ai-workflow`**。
+本仓库不自动安装技能；需要你把 `skills/ai-workflow/` 放到 Claude Code 能发现的位置（位置由你决定）。
 
-默认**不自动合并、不 push**，合并与发版由人完成。
+## 三个入口（同一个技能）
 
-> 状态：脚本逻辑已有回归测试（`bash scripts/test-ai-loop.sh`），但**还没用真实 `claude` 跑通过一轮**。
-> 跑通前不要当无人值守用，见 `docs/ARCHITECTURE.md` 第 7 节。
+| 入口 | 用途 |
+| --- | --- |
+| `/ai-workflow init` | 在目标项目安全初始化 `.ai-workflow/`；只写这个目录，幂等，冲突就停 |
+| `/ai-workflow task` | 按模板帮用户拆分/整理任务；不自动建任务、不实现 |
+| `/ai-workflow <提示词>` | 领取用户手写任务 → 只读探索 → 有歧义先进讨论 → 批准后实施验证 → 送审 |
 
-## 快速开始
+## 关键行为
 
-第一次在真实工程里试：先看 [docs/quickstart.md](docs/quickstart.md)（极简流程：初始化 → 写需求 → 手动跑 → 审查 → 稳定后再自动化）。下面是本仓库自身的说明。
+- **初始化只写 `.ai-workflow/`**：不改目标项目的 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+- **任务由人手写**：复制 `.ai-workflow/templates/task.md`；没有自动建任务的工具。
+- **歧义先讨论**：任务进 `needs-discussion`，记录事实、问题、方案、建议；不会被自动再次领取。
+- **恢复需要有版本的批准**：`plan_version` + 方案内容 sha256 + 用户原话；方案变化旧批准失效。
+- **审查通过不等于合并**：`review → approved → done` 分开；done 必须有目标分支与合并提交证据。
+- **两种运行方式共用锁**：手动 Claude/T3 会话与可选 `claude -p` 脚本不能抢同一个任务。
+- **不自动提交任务状态、不合并、不 push、不删 worktree**。
 
-1. 读 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，确认流程和参数。
-2. 按 `.ai/templates/task.md` 写一个任务到 `.ai/inbox/<id>.md`，`status: new`（front-matter 不要写行内注释）。也可以说「新增任务：…」，由 ai-loop-task 按模板追加一条，不开始做。
-3. 先看会选哪个任务：
-
-```bash
-DRY_RUN=1 scripts/ai-loop.sh
-```
-
-4. 填上项目的测试命令后真正执行（`PROJECT_TOOLS` 为空 agent 跑不了测试）：
-
-```bash
-PROJECT_TOOLS='Bash(make test)' scripts/ai-loop.sh
-```
-
-5. 到 `.ai/review/` 看任务记录和 `ai/<id>` 分支 diff；人工合并后归档：
+## 在目标项目里的最短流程
 
 ```bash
-scripts/ai-loop.sh done <id>
+# 在 Claude Code/T3 会话中：
+/ai-workflow init
+
+# 用户手写任务后：
+.ai-workflow/scripts/ai-workflow.sh next
+.ai-workflow/scripts/ai-workflow.sh claim T-20260101-001 --by 你的名字
+# ……探索/讨论/实施……
+.ai-workflow/scripts/ai-workflow.sh review T-20260101-001
+.ai-workflow/scripts/ai-workflow.sh approve-review T-20260101-001 --commit <sha> --by 审查人 --note "通过"
+# 人工合并后：
+.ai-workflow/scripts/ai-workflow.sh done T-20260101-001 --target main --merged-commit <sha> --by 确认人 --note "已合并"
 ```
 
-拒绝则 `scripts/ai-loop.sh reject <id> "原因"`。随时可用 `scripts/ai-loop.sh check` 校验状态与目录是否一致。
+详细步骤见目标项目生成的 `.ai-workflow/WORKFLOW.md`，或源包 [docs/quickstart.md](docs/quickstart.md)。
 
-## 目录
+## 源包结构
 
+```text
+skills/ai-workflow/          # 唯一技能入口（SKILL.md + assets + scripts + references + evals）
+  assets/                    # 装进目标 .ai-workflow/ 的文件
+  assets/docs/               # 目标项目内的 QUICKSTART / REFERENCE / TROUBLESHOOTING / MIGRATION
+  scripts/                   # detect / install / verify
+scripts/ai-workflow.sh       # 任务池状态机（源包版本）
+scripts/test-ai-workflow.sh  # 隔离回归测试（临时 fixture + 假 claude）
+.ai-workflow/                # 本仓库自己的示例任务池
+docs/ARCHITECTURE.md         # 设计、状态机、锁、worktree、未验证项
+docs/quickstart.md           # 第一次在真实工程里使用
+docs/MIGRATION.md            # 旧 ai-loop / ai-loop-task 迁移
+archive/legacy-v1/           # 旧版模板归档（不再被技能发现）
 ```
-CLAUDE.md                # 只含 @AGENTS.md
-AGENTS.md                # 路由表 + 硬性规矩
-LESSONS.md               # 错题本（≤5 条，3 次复发后毕业）
-.claude/loop.md          # 交互会话的每轮提示词
-.ai/                     # 任务池：inbox / doing / review / done / blocked / templates
-scripts/ai-loop.sh       # 无人值守脚本 + done / reject / check 子命令
-scripts/test-ai-loop.sh  # 回归测试（临时仓库 + 假 claude）
-docs/ARCHITECTURE.md     # 架构、参数、未验证风险
-docs/code-standards.md   # 验收标准、提交信息、复盘与毕业规则
+
+## 开发与检查
+
+```bash
+bash -n scripts/ai-workflow.sh && bash -n scripts/test-ai-workflow.sh
+bash scripts/test-ai-workflow.sh          # 153 项隔离检查（模型调用全部 mock）
 ```
 
-## 注意
-
-- `.ai/inbox/EXAMPLE-T-20261110-001.md` 是格式示例，`status: example`，不会被领取，可删除。
-- 第一次真正运行前，确认本机已安装并登录 `claude` CLI，且 git 已配置 user.name / user.email。
-- 脚本把 `ai: claim/review/...` 的状态提交写在当前分支，且只包含该任务文件；想保持主分支历史干净，请在专门分支上运行。
-- 项目要装依赖时用 `WORKTREE_SETUP`，不要软链 `node_modules`。
-- 所有可调参数集中在 `scripts/ai-loop.sh` 顶部，支持环境变量覆盖，见 ARCHITECTURE。
+真实 `claude -p` 没有在真实项目里跑通一轮；跑通前不要把 `run` 当无人值守使用。
+测试只证明脚本状态机、初始化与锁；不证明真实模型会遵守提示词。

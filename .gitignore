@@ -1,11 +1,14 @@
-# 循环运行时产物（worktree 默认在仓库内 .worktrees/）
-.ai-locks/
-.ai-logs/
-.worktrees/
+# ai-workflow 运行时产物（.ai-workflow/.gitignore 也会覆盖）
+.ai-workflow/worktrees/
+.ai-workflow/locks/
+.ai-workflow/logs/
 *.result.json
+*.stderr.log
+*.setup.log
 *.tmp
 *.tmp.*
 *.log
+.claude
 
 # 系统 / 编辑器
 .DS_Store

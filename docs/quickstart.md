@@ -1,78 +1,103 @@
 # 极简上手流程
 
-适用于在一个真实工程里第一次试这套工作流：**先手动写需求、手动跑；稳定后再上自动化。**
-机制和参数见 [ai-loop-architecture.md](ai-loop-architecture.md)（装进工程后的名字；本仓库里是 [ARCHITECTURE.md](ARCHITECTURE.md)）。
+适用于第一次在真实工程里使用：**先手写任务、手动跑；稳定后再考虑自动化。**
+机制见 [ARCHITECTURE.md](ARCHITECTURE.md)；目标项目内生成的是 `.ai-workflow/WORKFLOW.md`。
 
 ## 1. 初始化（一次性）
 
-在目标工程目录里开 Claude Code，说：
+在目标工程根目录开 Claude Code，说：
 
-> 初始化 AI 任务池工作流，别帮我提交。
+> /ai-workflow init
 
-- 它会先给计划。计划里出现 `MOVE` / `REPLACE`（动了你已有的 `AGENTS.md` 等文件），回复「确认」；原文件会原样搬到 `docs/legacy/`。
-- 目标文件有未提交改动时它会停下，先自己提交或丢弃再来。
-- 装完看汇报的三项：`TODO:` 列表、搬走了哪些文件、`.ai/loop.env` 里 `PROJECT_TOOLS` 填了什么。
-- 自己核对新 `AGENTS.md` 里的构建 / 测试命令，再看 `git status`，没问题就**提交一次**，让任务分支基于干净的初始化状态。
-- 没触发技能就直接说「用 ai-loop-init 初始化」。
+- 技能先只读侦察，再给 `--plan`；只写 `.ai-workflow/`。
+- 初始化会同时生成 `.ai-workflow/docs/`（QUICKSTART / REFERENCE / TROUBLESHOOTING / MIGRATION），
+  先把 `.ai-workflow/docs/QUICKSTART.md` 给用户看。
+- 如果输出 `CONFLICT`，先人工比较冲突文件，决定保留哪一版；不会覆盖。
+- 旧 `.ai/`、`scripts/ai-loop.sh` 只提示，不迁移。
+- 填 `.ai-workflow/config.env`：
+  - `BASE_REF`：明确的开发基准分支/提交（如 `dev`），不要默认都是 main；
+  - `PROJECT_TOOLS`：真实跑通的测试/构建命令；
+  - `WORKTREE_SETUP`：依赖安装命令（没有依赖就留空）。
+- 运行 `.ai-workflow/scripts/ai-workflow.sh check`，再自己看 `git status`。
+  初始化不会 `git add/commit`；是否提交由你决定。
 
-## 2. 写一个需求
-
-两种写法，文件格式相同。
-
-**说一句话**：在工程目录里对 Claude 说：
-
-> 新增任务：改订单列表的样式，参考某某文件，只改样式不改接口。
-
-会按模板在 `.ai/inbox/` 追加一条 `status: new` 的任务，不开始做。没触发就说「用 ai-loop-task」。
-
-**手写**：复制 `.ai/templates/task.md` 到 `.ai/inbox/<id>.md`（`id` 形如 `T-20261110-001`，与文件名一致），改这几处：
-
-- `id`、`title`、`created`；`status` 保持 `new`；`risk` 先用 `low`。
-- 背景：bug 写复现步骤和「期望 vs 实际」；界面优化写哪个页面、改成什么样；feature 写要解决的问题。
-- 验收标准写**真实命令**，或写人工复现步骤和修改前后可区分的现象；不要写「跑一下测试」。
-- front-matter 里不要写行内注释。
-- 前 2~3 个任务选小需求，别一上来就做大的。
-
-## 3. 手动跑一轮
-
-在主目录的 Claude Code 里说：
-
-> 按 `.claude/loop.md` 处理一个任务
-
-交互模式下你能看到它在做什么。它会：领任务 → 建 worktree `.worktrees/<id>` 和分支 `ai/<id>` → 实现并验证 → 提交到任务分支 → 任务移到 `.ai/review/`。
-需求不清它会停下来，任务进 `.ai/blocked/`，问题写在任务文件里。
-
-## 4. 审查
+## 2. 手写一个任务
 
 ```bash
-git diff <主分支>...ai/<id>        # 看改动
-cat .ai/review/<id>.md             # 看验证记录
+cp .ai-workflow/templates/task.md .ai-workflow/inbox/T-20260101-001.md
 ```
 
-看三件事：验证记录是不是真实命令和结果、有没有越界改动、「没试过」写没写。
+填：
 
-## 5. 通过或拒绝
+- `id` 与文件名一致；`status: new`；`risk` 拿不准写 `high`；
+- `base_ref` 可选；不写就用 `BASE_REF`，再空就用领取时主 checkout 当前 HEAD；
+- 背景、验收标准（真实命令或可观察步骤）、不要做；
+- 复杂需求：先讨论方案，把完整方案贴到「## 方案」；
+- 没有自动建任务的工具；可以叫 `/ai-workflow task` 帮你整理草稿，但文件由你确认。
+
+## 3. 在手动会话里执行
+
+新开 Claude/T3 会话：
+
+> /ai-workflow 领取并处理 T-20260101-001
+
+它会：
+
+1. `claim`（拿锁、建/复用 worktree、分支 `ai/<id>`）；
+2. 只读探索；
+3. 有重要歧义 → 填「## 讨论」→ `pause`，任务进 `discussion/`，业务代码零改动；
+4. 恢复流程见第 4 节；
+5. 实施、验证、`review`，进入 `review/` 等你审查。
+
+需求不清时它应停下讨论，而不是猜。
+
+## 4. 讨论、方案批准、恢复
+
+1. 用户补全「## 方案」，必要时修改版本号。
+2. `.ai-workflow/scripts/ai-workflow.sh plan-seal <id> --version 1`
+3. 用户明确说「批准版本 1」后：
+   `.ai-workflow/scripts/ai-workflow.sh approve <id> --version 1 --by 你 --note "用户批准原话"`
+4. 用户明确要求恢复后：
+   `.ai-workflow/scripts/ai-workflow.sh resume <id>`
+
+方案内容或版本变了，旧批准自动失效；只写方案不代表批准。
+
+## 5. 审查与合并
 
 ```bash
-# 通过
+git diff <base_commit>...ai/<id>
+cat .ai-workflow/review/<id>.md
+
+# 审查通过（不等于合并）
+.ai-workflow/scripts/ai-workflow.sh approve-review <id> --commit <sha> --by 你 --note "审查结论"
+
+# 人工合并（示例；按项目实际分支调整）
 git merge --no-ff ai/<id>
-git worktree remove .worktrees/<id>
-git branch -d ai/<id>
-scripts/ai-loop.sh done <id>
+merge_sha="$(git rev-parse HEAD)"
 
-# 拒绝
-scripts/ai-loop.sh reject <id> "原因"
+# 归档：写入合并证据
+.ai-workflow/scripts/ai-workflow.sh done <id> --target main --merged-commit "$merge_sha" --by 你 --note "已确认合并"
 ```
 
-出现返工、误判、验证太薄，往 `LESSONS.md` 记一条（格式见该文件）。
+拒绝：`.ai-workflow/scripts/ai-workflow.sh reject <id> --reason "原因"`。
 
-## 6. 什么时候上自动化
+squash/rebase 用 `--method squash|rebase`；脚本会标注无法用 sha 证明内容等价。
 
-连续 3~5 个任务都满足：验证记录是真实命令、没有越界改动、没有返工。然后：
+## 6. 什么时候用脚本模式
 
-1. 在 `.ai/loop.env` 填好 `PROJECT_TOOLS`（命令先在本机跑通，逐条写）和 `WORKTREE_SETUP`（依赖安装命令，没有就不填）。
-2. 先 `DRY_RUN=1 scripts/ai-loop.sh` 看会选哪个任务。
-3. 再手动 `scripts/ai-loop.sh` 跑几次，**第一次要盯着看**。
-4. 稳定后才考虑 cron / launchd。
+连续几个任务都满足：验证记录真实、无越界改动、无返工。然后：
 
-注意：真实 `claude -p` 在这套脚本下还没有跑通记录，以 [code-standards.md](code-standards.md) 第一章第 4 条为准：没跑通之前，不宣称可以无人值守。
+```bash
+DRY_RUN=1 .ai-workflow/scripts/ai-workflow.sh run
+.ai-workflow/scripts/ai-workflow.sh run
+```
+
+它是可选的单任务模式，与手动会话共用任务锁。真实 `claude -p` 在真实项目里没有跑通记录前，
+不要当无人值守使用。
+
+## 7. 出问题
+
+- 锁残留：确认会话结束后 `.ai-workflow/scripts/ai-workflow.sh release <id>`。
+- `doing/` 无锁：下次 `run` 会转入 `blocked/` 并保留 worktree；人工核对后再决定。
+- worktree 冲突：脚本会停止并报告；不会删除或嵌套创建。
+- 旧任务迁移：见 [MIGRATION.md](MIGRATION.md)。
