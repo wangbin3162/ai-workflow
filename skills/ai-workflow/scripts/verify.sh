@@ -12,13 +12,16 @@ chk()  { local d="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$d"; else bad "$
 echo "== 必需结构（全部在 .ai-workflow/ 内）=="
 chk "存在 .ai-workflow/README.md" test -s .ai-workflow/README.md
 chk "存在 .ai-workflow/TEMPLATE.md" test -s .ai-workflow/TEMPLATE.md
+chk "存在 .ai-workflow/CONFIG.md" test -s .ai-workflow/CONFIG.md
 for d in inbox doing review done list; do
   chk "存在 .ai-workflow/$d/" test -d ".ai-workflow/$d"
 done
 chk "README 是 v3 初始化文档" bash -c "head -n 1 .ai-workflow/README.md 2>/dev/null | grep -q 'ai-workflow:v3'"
+chk "CONFIG 是 config-v1 模板" bash -c "head -n 1 .ai-workflow/CONFIG.md 2>/dev/null | grep -q 'ai-workflow:config-v1'"
 
 echo "== README 内容 =="
 chk "说明状态与目录" grep -q '^## 1\. 目录与状态' .ai-workflow/README.md
+chk "指向 CONFIG.md" grep -q 'CONFIG.md' .ai-workflow/README.md
 chk "说明任务模板文件" grep -q 'TEMPLATE.md' .ai-workflow/README.md
 chk "说明从 list/ 拆分任务" bash -c "grep -q '从 list/ 拆分任务' .ai-workflow/README.md"
 chk "任务模板含 front-matter 与验证区" bash -c "grep -q '^id: T-YYYYMMDD-001' .ai-workflow/TEMPLATE.md && grep -q '^## 方案' .ai-workflow/TEMPLATE.md && grep -q '^## 验证记录' .ai-workflow/TEMPLATE.md"
@@ -29,9 +32,16 @@ chk "说明不自动合并" grep -q '不自动合并' .ai-workflow/README.md
 chk "说明 needs-discussion 不可领取" bash -c "grep -q 'needs-discussion' .ai-workflow/README.md && grep -q '不得.*领取' .ai-workflow/README.md"
 chk "说明合并证据与 squash 边界" bash -c "grep -q 'merged_commit' .ai-workflow/README.md && grep -q '无法用 sha 证明内容等价' .ai-workflow/README.md"
 
-echo "== 配置与旧结构 =="
+echo "== 项目配置与旧结构 =="
+chk "CONFIG 含基准分支" grep -q '基准分支' .ai-workflow/CONFIG.md
+chk "CONFIG 含测试 / 构建命令" grep -q '测试 / 构建命令' .ai-workflow/CONFIG.md
+chk "CONFIG 含 worktree 依赖安装" grep -q 'worktree 依赖安装' .ai-workflow/CONFIG.md
+chk "CONFIG 已替换分支占位符" bash -c "! grep -q '{{CURRENT_BRANCH}}' .ai-workflow/CONFIG.md"
+if grep -q 'TODO:' .ai-workflow/CONFIG.md 2>/dev/null; then
+  warn "CONFIG.md 还有 TODO：请补全测试命令 / 依赖安装"
+fi
 if grep -q 'TODO:' .ai-workflow/README.md 2>/dev/null; then
-  warn "README 的「项目配置」还有 TODO：请补全基准分支 / 测试命令 / 依赖安装"
+  warn "README 还有 TODO：请人工检查"
 fi
 for p in .initialized .gitignore config.env scripts docs templates discussion approved blocked; do
   if [ -e ".ai-workflow/$p" ]; then

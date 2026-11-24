@@ -6,11 +6,12 @@
       "name": "init-minimal-structure",
       "prompt": "/ai-workflow init。帮我初始化 AI 任务池工作流，别提交。",
       "fixture": "git 仓库：README.md、已提交的 AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore，没有 .ai-workflow/",
-      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md 和 inbox/doing/review/done/list；不生成脚本、config.env、docs、templates、.gitignore；不提交",
+      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md、CONFIG.md 和 inbox/doing/review/done/list；CONFIG 预填当前分支；不生成脚本、config.env、docs、templates、.gitignore；不提交",
       "assertions": [
-        ".ai-workflow 下只有 README.md、TEMPLATE.md + 五个目录",
+        ".ai-workflow 下只有 README.md、TEMPLATE.md、CONFIG.md + 五个目录",
         "没有 .ai-workflow/scripts、docs、templates、config.env、.gitignore、.initialized",
-        "存在 .ai-workflow/TEMPLATE.md 和 .ai-workflow/list/",
+        "存在 .ai-workflow/TEMPLATE.md、CONFIG.md 和 .ai-workflow/list/",
+        "CONFIG.md 的基准分支等于当前分支，测试命令仍为 TODO",
         "AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore 的 sha256 不变",
         "git log 没有新增提交",
         "scripts/verify.sh 退出码为 0"
@@ -20,11 +21,12 @@
       "id": 2,
       "name": "init-idempotent-preserves-readme",
       "prompt": "/ai-workflow init（重复执行）",
-      "fixture": "已初始化；用户已编辑 .ai-workflow/README.md 的项目配置",
-      "expected_output": "保留用户 README，只补缺失目录；不覆盖",
+      "fixture": "已初始化；用户已编辑 .ai-workflow/README.md 和 CONFIG.md",
+      "expected_output": "保留用户 README 与 CONFIG，只补缺失目录；不覆盖",
       "assertions": [
         "重复执行退出码为 0",
         "README 内容与执行前一致",
+        "CONFIG.md 内容与执行前一致",
         "输出包含 SKIP"
       ]
     },
@@ -83,11 +85,11 @@
       "name": "single-entry-minimal-assets",
       "prompt": "这个仓库有几个 AI 工作流技能入口？初始化会生成脚本吗？",
       "fixture": "源包 skills/ 与 assets/",
-      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README + 四目录，不分发脚本",
+      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README/TEMPLATE/CONFIG + 五目录，不分发脚本",
       "assertions": [
         "skills/ 下只有一个 SKILL.md",
         "SKILL.md 的 name 为 ai-workflow",
-        "assets/ 只有 README.md",
+        "assets/ 只有 README.md、TEMPLATE.md、CONFIG.md",
         "不再保留旧的脚本版状态机"
       ]
     }

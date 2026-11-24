@@ -1,6 +1,6 @@
 # 迁移说明
 
-当前初始化只生成 `.ai-workflow/README.md`、`TEMPLATE.md` 和
+当前初始化只生成 `.ai-workflow/README.md`、`TEMPLATE.md`、`CONFIG.md` 和
 `inbox/doing/review/done/list` 五个目录。
 旧 `.ai/`、v1/v2 历史结构和运行脚本都不会自动迁移或升级。
 
@@ -36,8 +36,13 @@ cp .ai/blocked/*.md .ai-workflow/inbox/   2>/dev/null || true
 2. 把 `discussion/`、`blocked/` 里的任务移到 `inbox/`，确认 status；
 3. 把 `approved/` 里的任务移回 `review/`，保留 `review_approved` 记录；
 4. 删除旧 `scripts/`、`docs/`、`templates/`、`config.env`、`.gitignore`、`.initialized`；
-5. 把旧 README 移走或备份，然后运行 `/ai-workflow init` 生成 v3 README + TEMPLATE + list/；
-6. 把项目配置（基准分支、测试命令、依赖安装）写进新 README。
+5. 把旧 README 移走或备份，然后运行 `/ai-workflow init` 生成 v3 README + TEMPLATE + CONFIG + list/；
+6. 把项目配置（基准分支、测试命令、依赖安装）写进新 `CONFIG.md`。
+
+## 2.1 已有 v3 精简结构
+
+运行 `/ai-workflow init` 会补建缺失的 `.ai-workflow/CONFIG.md`，已存在的文件不覆盖。
+README 里旧的「项目配置」内容需要手动搬进 `CONFIG.md`；`README.md` 仍可保留用户修改。
 
 旧状态机脚本与资产不再保留在仓库中；需要时从 git 历史查看。
 

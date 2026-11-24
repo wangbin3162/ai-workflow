@@ -13,6 +13,7 @@
 .ai-workflow/
 ├── README.md      # 本文件
 ├── TEMPLATE.md    # 任务模板
+├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
@@ -35,12 +36,10 @@
 - 实现完成、验证通过、审核通过、人工确认已合并、done/归档是五件事。
 - `.ai-workflow/` 是否纳入版本控制由项目自己决定；本工作流不修改项目 `.gitignore`。
 
-## 2. 项目配置（初始化后补全）
+## 2. 项目配置
 
-- 基准分支（`BASE_REF`）：TODO: 填 `dev` / `main` 等；空 = 领取时主 checkout 当前 HEAD。
-  不要假设项目都用 `main`。
-- 测试 / 构建命令：TODO: 填真实可执行的命令。
-- worktree 依赖安装：TODO: 填安装命令；无第三方依赖写「无」。
+见 [CONFIG.md](CONFIG.md)。`init` 会预填当前分支；初始化会话应读取目标项目已有的
+`AGENTS.md` / `README` / `docs` / CI，实际验证命令后再填，不要编造。
 
 ## 3. 任务模板与任务列表
 
@@ -188,12 +187,12 @@ approved_note: <用户批准原话>
 ## 5. worktree
 
 - 位置：`.ai-workflow/worktrees/<id>/`；分支 `ai/<id>`。
-- 基准优先级：任务 `base_ref` → 本文「项目配置」的基准分支 → 领取时主 checkout 当前 HEAD。
+- 基准优先级：任务 `base_ref` → CONFIG.md 的基准分支 → 领取时主 checkout 当前 HEAD。
 - 先看是否已有同分支 worktree（`git worktree list --porcelain`）；有就复用，不嵌套创建。
 - 目录存在但不是该分支 worktree → 停止并报告，不删除、不覆盖。
 - 主 checkout 当前在 `ai/<id>` 分支 → 拒绝领取。
 - 已处于任务 worktree 时，先核验仓库与分支，再复用当前目录。
-- 依赖由人/脚本按「项目配置」准备，不要软链主仓库的依赖目录。
+- 依赖由人/脚本按 CONFIG.md 准备，不要软链主仓库的依赖目录。
 
 ## 6. 人工检查清单
 

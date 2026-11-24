@@ -52,13 +52,13 @@ for f in AGENTS.md CLAUDE.md README.md; do
 done
 echo "language: $lang   （依据汉字数：${basis:- 无可读文件}）"
 
-echo "== 基准分支线索（写进 README 项目配置）=="
+echo "== 基准分支线索（写进 CONFIG.md）=="
 echo "当前分支：$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 未知)"
 for b in main master dev develop trunk; do
-  git show-ref --verify --quiet "refs/heads/$b" && echo "hint: 存在分支 ${b}；如果它是开发基准，填进 README（不要假设一定是 main）"
+  git show-ref --verify --quiet "refs/heads/$b" && echo "hint: 存在分支 ${b}；如果它是开发基准，填进 CONFIG.md（不要假设一定是 main）"
 done
 
-echo "== 测试 / 构建线索（写进 README 项目配置）=="
+echo "== 测试 / 构建线索（写进 CONFIG.md）=="
 if [ -f Makefile ]; then
   for t in test check lint build; do grep -qE "^$t:" Makefile && echo "hint: Makefile 有目标 $t → make $t"; done
 fi
@@ -74,4 +74,4 @@ fi
 [ -f go.mod ]     && echo "hint: Go → go test ./..."
 [ -f Cargo.toml ] && echo "hint: Rust → cargo test"
 ls .github/workflows/*.yml >/dev/null 2>&1 && echo "hint: CI 工作流里的命令是最可信的线索：.github/workflows/"
-echo "（以上都只是线索：写进 README 前请真实跑一次）"
+echo "（以上都只是线索：写进 CONFIG.md 前请真实跑一次）"

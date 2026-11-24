@@ -1,17 +1,18 @@
 # 设计说明
 
-## 为什么只生成 README/TEMPLATE + 五个目录
+## 为什么只生成 README/TEMPLATE/CONFIG + 五个目录
 
 - 初始化产物越少，用户越容易找到入口；说明集中在一个 README，任务模板单独一个 TEMPLATE.md，
-  避免 README/WORKFLOW/docs 多处漂移。
+  项目配置单独一个 CONFIG.md，避免 README/WORKFLOW/docs 多处漂移。
 - 目录按生命周期压缩为四个：`inbox`（new/needs-discussion/blocked）、`doing`（claimed）、
   `review`（needs_review/review_approved）、`done`（done）。`discussion`、`approved`、`blocked`
   不再单独建目录，状态写在 front-matter 里。
 - 增加 `list/` 作为临时输入区：用户放任务列表/方案草稿，`/ai-workflow task` 分析后按 TEMPLATE
   拆分成任务草稿；默认不写 inbox，用户确认后才落盘。
 - 不再生成 `.gitignore`：是否忽略 `.ai-workflow/` 由项目自己决定，初始化不碰根 `.gitignore`。
-- 不再生成 `config.env`：基准分支、测试命令、依赖安装写进 README 的「项目配置」，
-  由用户/初始化会话补全。
+- 不再生成 `config.env`：项目配置独立为 `CONFIG.md`。`init` 预填当前分支，
+  初始化会话读取目标 `AGENTS.md` / README / docs / CI，实际验证后填测试命令与依赖安装；
+  不把配置塞回 README。
 
 ## 为什么不再随初始化分发脚本
 

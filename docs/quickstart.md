@@ -12,6 +12,7 @@
 .ai-workflow/
 ├── README.md
 ├── TEMPLATE.md
+├── CONFIG.md
 ├── inbox/
 ├── doing/
 ├── review/
@@ -19,9 +20,9 @@
 └── list/
 ```
 
-不生成脚本、配置、额外文档，也不改 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
-然后打开 `.ai-workflow/README.md`，补「项目配置」：基准分支、测试命令、依赖安装。
-运行 `bash skills/ai-workflow/scripts/verify.sh <目标>` 检查结构。
+不生成脚本、额外文档，也不改 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+`CONFIG.md` 已预填当前分支；初始化会话按目标 `AGENTS.md` / README / docs / CI 验证命令后，
+补测试 / 构建命令与依赖安装。运行 `bash skills/ai-workflow/scripts/verify.sh <目标>` 检查结构。
 
 ## 2. 手写任务或从列表拆分
 

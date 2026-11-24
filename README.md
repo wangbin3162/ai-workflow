@@ -13,6 +13,7 @@ Claude Code 能发现的位置。
 .ai-workflow/
 ├── README.md      # 说明 + 状态表 + AI 执行流程
 ├── TEMPLATE.md    # 任务模板
+├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
@@ -20,14 +21,14 @@ Claude Code 能发现的位置。
 └── list/          # 临时任务列表/方案草稿，供 AI 拆分
 ```
 
-不生成脚本、`config.env`、`docs/`、`templates/` 或 `.gitignore`。
+不生成脚本、`config.env`、`docs/`、`templates/` 或 `.gitignore`；项目配置独立放 `CONFIG.md`。
 任务流转由 AI 直接操作任务文件和 git；`.ai-workflow/` 是否纳入版本控制由项目自己决定。
 
 ## 三个入口（同一个技能）
 
 | 入口 | 用途 |
 | --- | --- |
-| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md` + 五个目录；幂等，旧结构不自动升级 |
+| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md`、`CONFIG.md` + 五个目录；幂等，旧结构不自动升级 |
 | `/ai-workflow task` | 按 TEMPLATE 整理任务草稿；分析 `list/` 里的列表拆分任务；默认不写 inbox |
 | `/ai-workflow <提示词>` | 领取任务 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
 
@@ -61,6 +62,7 @@ skills/ai-workflow/          # 唯一技能入口
   SKILL.md
   assets/README.md           # 目标 .ai-workflow/ 的说明与执行规则
   assets/TEMPLATE.md         # 目标 .ai-workflow/ 的任务模板
+  assets/CONFIG.md           # 目标 .ai-workflow/ 的项目配置模板
   scripts/                   # detect / install / verify（技能自身工具，不随初始化分发）
   references/                # 设计说明、旧入口归档
   evals/evals.json
@@ -72,7 +74,7 @@ docs/                        # ARCHITECTURE / quickstart / MIGRATION / code-stan
 
 ```bash
 bash -n skills/ai-workflow/scripts/*.sh
-bash scripts/test-ai-workflow.sh     # 47 项隔离检查
+bash scripts/test-ai-workflow.sh     # 54 项隔离检查
 bash skills/ai-workflow/scripts/verify.sh <目标项目>
 ```
 

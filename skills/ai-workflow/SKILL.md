@@ -1,6 +1,6 @@
 ---
 name: ai-workflow
-description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE 和 inbox/doing/review/done/list 五个目录，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow 加提示词领取任务，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「按任务池做一个任务」「用 worktree 让 agent 跑任务」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
+description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow 加提示词领取任务，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「按任务池做一个任务」「用 worktree 让 agent 跑任务」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
 ---
 
 # ai-workflow — 单一技能入口
@@ -9,14 +9,15 @@ description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在�
 
 | 用户说的 | 模式 | 做什么 |
 | --- | --- | --- |
-| `/ai-workflow init`、「初始化 AI 工作流 / 任务池」 | **初始化** | 只写目标项目 `.ai-workflow/README.md` + 四个任务目录 |
+| `/ai-workflow init`、「初始化 AI 工作流 / 任务池」 | **初始化** | 只写目标项目 `.ai-workflow/README.md` + `TEMPLATE.md` + `CONFIG.md` + 五个任务目录 |
 | `/ai-workflow task`、「新增任务 / 拆分任务」 | **整理任务** | 按 README 模板帮用户写任务草稿；不自动创建、不实现 |
 | `/ai-workflow <提示词>`、「领取任务 / 按任务池做」 | **执行任务** | 领取 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
 
 旧入口 `ai-loop-init` / `ai-loop-task` 不再提供；旧 `.ai/` 与旧脚本不会被调用，也不自动迁移。
 
 **初始化后的任务流转由 AI 直接操作文件和 git，没有随初始化分发的脚本。**
-目标项目内唯一的工作流说明是 `.ai-workflow/README.md`，执行时以它为准。
+目标项目内的工作流说明是 `.ai-workflow/README.md`，项目配置在 `.ai-workflow/CONFIG.md`，
+执行时以它们为准。
 
 ---
 
@@ -31,7 +32,8 @@ bash <skill-dir>/scripts/detect.sh <目标>
 ```
 
 读：是否已初始化、旧版结构、语言、基准分支与测试命令线索。
-再读目标 `README.md` 和已有 `AGENTS.md`（若有）。线索不是事实，写进 README 前自己跑一次。
+再读目标 `AGENTS.md`、`README.md`、`docs/`、CI 配置（若有）。线索不是事实：
+写进 `CONFIG.md` 前自己跑一次；不要跑会改文件的安装命令。
 
 ### 2. 出计划
 
@@ -45,6 +47,7 @@ bash <skill-dir>/scripts/install.sh --target <目标>          # 默认 --plan
 .ai-workflow/
 ├── README.md
 ├── TEMPLATE.md
+├── CONFIG.md
 ├── inbox/
 ├── doing/
 ├── review/
@@ -53,8 +56,9 @@ bash <skill-dir>/scripts/install.sh --target <目标>          # 默认 --plan
 ```
 
 - 不生成 `.gitignore`、`config.env`、`scripts/`、`docs/`、`templates/`、`.initialized`。
+- `CONFIG.md` 独立放项目配置；`init` 预填当前分支，测试命令留 TODO 等初始化会话核实。
 - `list/` 用于临时任务列表/方案草稿，供 `/ai-workflow task` 分析拆分。
-- 已存在且带 `ai-workflow:v3` 标记的 README、已存在的 TEMPLATE 视为用户文件：保留，不覆盖。
+- 已存在且带 `ai-workflow:v3` 标记的 README、已存在的 TEMPLATE / CONFIG 视为用户文件：保留，不覆盖。
 - 未标记的 README、旧版 `.initialized` / v1 / v2 结构：停止并提示人工处理，不自动升级。
 - 只提示旧 `.ai/`、`scripts/ai-loop.sh`，不读取、不修改。
 
@@ -67,13 +71,15 @@ bash <skill-dir>/scripts/install.sh --target <目标>          # 默认 --plan
 bash <skill-dir>/scripts/install.sh --target <目标> --apply
 ```
 
-### 4. 补 README 的项目配置
+### 4. 补 CONFIG.md 的项目配置
 
-打开 `.ai-workflow/README.md`，把「项目配置」里的 TODO 换成真实内容：
+`init` 已把当前分支预填进 `.ai-workflow/CONFIG.md`。初始化会话要把它补成可执行配置：
 
-- 基准分支：项目明确的开发基准（如 `dev`）；**不要假设都是 main**；空 = 领取时当前 HEAD。
-- 测试 / 构建命令：真实可执行的命令。
-- worktree 依赖安装：有依赖就写安装命令，没有写「无」。
+- 读目标 `AGENTS.md` / `README.md` / `docs/` / CI 配置，找出项目声明的测试、构建、依赖安装方式；
+- 实际跑一次不改源码的检查命令（如已有测试 / 语法检查）；需要装依赖或会改工作区时先征得用户同意；
+- 基准分支：当前分支通常可用；如果当前是 feature 分支，改成 `dev` / `main` 等开发基准；
+- worktree 依赖安装：有依赖写安装命令，没有写「无」；
+- 无法核实的内容保留 `TODO:`，并在汇报里列出来。
 
 ### 5. 机械验证
 
@@ -81,11 +87,11 @@ bash <skill-dir>/scripts/install.sh --target <目标> --apply
 bash <skill-dir>/scripts/verify.sh <目标>
 ```
 
-有 FAIL 修到通过；WARN（如 README 仍有 TODO、旧结构残留）列进汇报。
+有 FAIL 修到通过；WARN（如 CONFIG.md 仍有 TODO、旧结构残留）列进汇报。
 
 ### 6. 汇报（3~5 行）
 
-模式（新建 / 已存在保留 / 旧结构停止）、生成的结构、README 里未填的 TODO、未验证项。
+模式（新建 / 已存在保留 / 旧结构停止）、生成的结构、CONFIG.md 里未填的 TODO、未验证项。
 不要 `git add` / `commit` / `push`。
 
 ---
@@ -120,7 +126,7 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 只选 `inbox/` 中 `status: new` 的任务；`needs-discussion` / `blocked` 不得领取。
 - `mkdir .ai-workflow/.locks/<id>` 做任务锁；已存在就停，确认无人使用后由人删除。
 - 任务移到 `doing/`，改 `status: claimed`，写 `claimed_by`、`claimed_at`。
-- 准备 worktree：基准 = 任务 `base_ref` → README 项目配置 → 主 checkout 当前 HEAD。
+- 准备 worktree：基准 = 任务 `base_ref` → `CONFIG.md` 的基准分支 → 主 checkout 当前 HEAD。
 - 已有同分支 worktree 就复用；目录存在但不是该分支 worktree 就停止报告；不嵌套创建。
 - 主 checkout 当前在 `ai/<id>` 分支时拒绝领取。
 - 记录 `worktree`、`base_commit`。
@@ -202,10 +208,11 @@ bash <skill-dir>/scripts/verify.sh <目标>
 ## 文件
 
 - `scripts/detect.sh` — 只读侦察
-- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE + 五目录）
+- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE、CONFIG + 五目录）
 - `scripts/verify.sh` — 结构验证
 - `assets/README.md` — 目标 `.ai-workflow/` 的说明与执行规则
 - `assets/TEMPLATE.md` — 目标 `.ai-workflow/` 的任务模板
+- `assets/CONFIG.md` — 目标 `.ai-workflow/` 的项目配置模板（init 预填当前分支）
 - `references/design.md` — 设计原因与边界
 - `references/legacy-ai-loop-task.md` — 旧任务整理入口归档（不是技能入口）
 - `evals/evals.json` — 测试用例

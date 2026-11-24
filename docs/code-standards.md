@@ -8,7 +8,7 @@
 
 ### 1. 关键行为有能区分修复前后的检查
 
-改 `skills/ai-workflow/scripts/` 或 `assets/README.md` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
+改 `skills/ai-workflow/scripts/` 或 `assets/README.md` / `assets/CONFIG.md` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
 把旧代码放回去跑新用例，应出现**真的 `FAIL`**，并点名具体行为；编译错误、跳过、断言缺失都不算。
 反向验证：在可安全还原的自有改动上，手工改坏一处，确认用例变红；还原后确认变绿。
 
@@ -27,7 +27,7 @@
 - `bash scripts/test-ai-workflow.sh` —— 初始化/结构回归测试
 - `bash skills/ai-workflow/scripts/verify.sh <目标>` —— 目标项目结构验证
 
-**当前基线（实测值只记在这里）：** 47 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
+**当前基线（实测值只记在这里）：** 54 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
 
 ### 4. 尽可能真实使用
 
@@ -69,7 +69,7 @@
 要求：
 
 - **标题用行为描述**，不要写「更新」「优化 X」「重构 Y」。至少带上 scope（`loop` / `task` / `docs`）。
-- **数字要具体**：不写「测试通过」，写「`bash scripts/test-ai-workflow.sh` 47 个检查全过」。
+- **数字要具体**：不写「测试通过」，写「`bash scripts/test-ai-workflow.sh` 54 个检查全过」。
 - **「没试过」是必填项**，没验证的部分写「未跑」，不省略。
 - 大改动（多个文件或行为面）必须有 body；只改错别字可以只有标题。
 - 任务分支上的 commit 同样遵守。脚本不会自动提交任务状态，没有状态迁移提交的例外。
