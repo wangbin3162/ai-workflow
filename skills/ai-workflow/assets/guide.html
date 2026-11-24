@@ -640,7 +640,7 @@
   }
 
   @media (max-width: 980px) {
-    .modes, .sheet, .gates, .dirs { grid-template-columns: 1fr; }
+    .modes, .sheet, .gates, .dirs, .sheet.practices { grid-template-columns: 1fr; }
     .stage { grid-template-columns: 1fr; }
     .detail { border-left: none; border-top: 1px solid var(--border); position: static; max-height: none; }
     .forbid ul { columns: 1; }
@@ -930,6 +930,33 @@
         <li>不把任务状态偷偷提交进业务分支。</li>
         <li>验收标准不能自行放宽。没跑的检查写「未运行」。</li>
       </ul>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-header">
+      <h2>最佳实践与冲突处理</h2>
+      <p>多 Agent 协作黄金流，以及应对文件交叉与合并冲突的防御机制。详见 <a href="README.md">README.md</a>。</p>
+    </div>
+    <div class="sheet practices" style="grid-template-columns: repeat(2, 1fr);">
+      <section>
+        <h2>黄金工作流（推荐协作方式）</h2>
+        <ol>
+          <li><strong>主会话规划拆分</strong>：需求放入 <code>list/</code>，运行 <code>/ai-workflow task</code> 拆分，人工确认后写入 <code>inbox/</code>。</li>
+          <li><strong>多会话独立并行</strong>：在终端或 T3 开 2~3 个窗口，分别发送 <code>/ai-workflow 处理 T-xxx</code>。<strong>无需手动切换 worktree</strong>，各 Agent 自动在 <code>.ai-worktrees/</code> 下隔离工作，互不干扰；遇到歧义在该会话直接与你讨论。</li>
+          <li><strong>主工程统一审查与归档</strong>：各任务完成后在主工程审查 diff 并合并。全部完成后运行 <code>/ai-workflow archive</code> 一键归档并清理 worktrees 与分支。</li>
+          <li><strong>心智建议</strong>：单会话盲目拉起大量子代理易触碰 API 速率限制，且遇到歧义时无法替人决策；多独立会话人机协同更稳健。</li>
+        </ol>
+      </section>
+      <section>
+        <h2>文件交叉与合并冲突防御</h2>
+        <ol>
+          <li><strong>绝对不自动合入基准分支</strong>：所有开发均限制在独立 worktree 与分支，<code>main</code> 主分支永远保持干净安全。</li>
+          <li><strong>模式 1：先后合并，后者在 worktree 中 rebase（最常用）</strong>：若任务 B 准备合并时与最新的 <code>main</code> 冲突，在任务 B 会话中指令 Agent：“rebase main 解决冲突并重跑测试”，绿灯后再行合并。</li>
+          <li><strong>模式 2：前后依赖指定 base_ref</strong>：若任务 B 强依赖任务 A，在元数据中写 <code>base_ref: ai/T-A</code>，直接基于 A 的分支开工。</li>
+          <li><strong>模式 3：核心模块大重构排期串行</strong>：涉及同一核心文件大面积重写时，拆分阶段排为先后顺序，不盲目并行。</li>
+        </ol>
+      </section>
     </div>
   </div>
 
