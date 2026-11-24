@@ -1,17 +1,17 @@
-# ai-workflow 任务流转与执行指南
+<!-- ai-workflow:v3 — 本文件由 /ai-workflow init 生成；用户可编辑，重复 init 会保留本文件 -->
+# ai-workflow
 
 用**用户手写**的任务驱动 AI 编码会话：AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 →
 人工审查 → 人工合并 → 归档。**AI 不合并、不 push、不删除 worktree。**
 
-本文档为目标项目初始化至 `.ai-workflow/README.md` 的完整执行规格说明。
-
----
+任务状态靠任务文件的 front-matter 和所在目录表达。状态操作由 AI 按本文直接执行，
+没有随初始化分发的脚本。流转图解见 [guide.html](guide.html)，怎么执行以本文为准。
 
 ## 1. 目录与状态
 
 ```text
 .ai-workflow/
-├── README.md      # 本指南
+├── README.md      # 本文件
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── guide.html     # 流转图解；执行规则以本文件为准
@@ -39,14 +39,14 @@
 
 ## 2. 项目配置
 
-见 `CONFIG.md`。`init` 会预填当前分支；初始化会话应读取目标项目已有的
+见 [CONFIG.md](CONFIG.md)。`init` 会预填当前分支；初始化会话应读取目标项目已有的
 `AGENTS.md` / `README` / `docs` / CI，实际验证命令后再填，不要编造。
 
 ## 3. 任务模板与任务列表
 
 ### 3.1 手写任务
 
-复制 `TEMPLATE.md` 到 `inbox/`，文件名用任务的 `id`，例如：
+复制 [TEMPLATE.md](TEMPLATE.md) 到 `inbox/`，文件名用任务的 `id`，例如：
 
 ```bash
 cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
@@ -74,6 +74,21 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 5. 用户确认后，AI 才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不领取、不实现。
 
 `list/` 只是输入区，没有状态含义；拆分完成后由用户决定保留或删除原列表。
+
+### 3.3 Bug 清单与快速收割（bugcheck 与 bugfix）
+
+初始化时会在 `.ai-workflow/list/buglist.md` 自动生成开箱即用的 Bug 跟踪池，格式支持手工随手记，也支持外接脚本从禅道、Jira、飞书等自动化同步写入。
+
+- **`/ai-workflow bugcheck [要求]`（仅拆分与标记）**：
+  1. 读取 `list/buglist.md` 中所有未打勾 `[ ]` 的待处理条目；
+  2. 结合代码库检索相关文件与上下文，按 `TEMPLATE.md` 拆分为 `type: bugfix`、`risk: low` 的任务写入 `inbox/`；
+  3. 自动将 `buglist.md` 中对应的条目移至「已拆分处理」区块，并标记对应的任务 ID（如 `- [x] ... -> T-xxx`）；
+  4. 仅拆分，不直接改业务代码。
+- **`/ai-workflow bugfix`（一键合并、拆分并批量自动推进）**：
+  1. 检索 `list/buglist.md` 中的未处理条目；
+  2. **智能归并**：分析若有多条 Bug 涉及同一模块或相同文件，自动归并为单一任务，杜绝后续文件交叉冲突；不同模块拆为独立任务；
+  3. 自动生成任务写入 `inbox/`，并同步更新 `buglist.md`；
+  4. 立即启动自动批量执行（单任务或串行/并行批处理），在专属 worktree 中修复、运行测试验证，并一并送入 `review/`。
 
 ## 4. AI 执行流程
 
@@ -253,6 +268,32 @@ approved_note: <用户批准原话>
 - **推荐：多独立会话并行（体验最佳）**：上下文彻底隔离、Token 消耗可控、直面人类做业务决断，最稳健。
 - **推荐：单会话顺次推进（心智负担最小）**：任务量少（2~3 个）或不想开多窗口时，在单会话中逐个认领、送审、合并。
 - **慎用：单会话盲目拉起大量子代理**：极易触发模型 API 速率限制（429），且一旦触发 `needs-discussion` 子代理无法替人做架构决策。
+
+### 9.3 任务包批量推进与夜间跑批模型
+
+对于已在白天规划好方案或拆分好的低风险任务包（如多个小优化、一网打尽的 Bug 列表）：
+
+- **串行推进流水线（Chained Pipeline，最常用）**：
+  - 指令：`/ai-workflow 串行推进` 或 `/ai-workflow run-all --serial`
+  - 机制：
+    1. Task 1 基于基准分支开工，在专属 worktree 修复验证并提交送审；
+    2. Task 2 自动以 Task 1 分支为基准（`base_ref: ai/T-Task1`）开辟下一级 worktree，继承 Task 1 的改动继续实施；
+    3. 依次层层递进，直至全部任务进入 `review/`。
+  - **优势**：主分支（`main`）一尘不染，任务成果层层累积。下班前启动，第二天早上你只需在 `review/` 中逐级审查或直接审查最后一级，一次性合并入 `main`。
+- **并行推进并发（Parallel Fan-out）**：
+  - 指令：`/ai-workflow 并行推进` 或 `/ai-workflow run-all --parallel`
+  - 机制：针对互相解耦、经分析无文件交叉的独立任务，由主调度器为各任务分配独立 worktree 并发执行。
+
+### 9.4 Bug 与轻量调整敏捷分级策略
+
+避免为了流程而流程，根据投入产出比（ROI）建立三级分类：
+
+1. **L1 微小调整（直接改，不入池）**：
+   - 错别字、文案微调、明显 1~2 行样式/参数修复。直接在日常会话改完、跑测试提交，无需使用任务池。
+2. **L2 明确的小 Bug / 样式修复（极简直通车）**：
+   - 随手记入 `.ai-workflow/list/buglist.md`，下班前一条指令 `/ai-workflow bugfix` 自动合并拆分并自动修完送审。
+3. **L3 复杂 / 根因不明 Bug（严格正规军流转）**：
+   - 涉及多模块联动、偶现或数据一致性的重大 Bug。先在 `list/` 或会话中让 AI 只读探索定位根因，出具完整方案并由你批准后，方可编码实施。
 
 ## 10. 文件交叉与合并冲突防御
 

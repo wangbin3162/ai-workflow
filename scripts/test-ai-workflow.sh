@@ -43,6 +43,7 @@ ok "生成 TEMPLATE.md" test -f "$R/.ai-workflow/TEMPLATE.md"
 ok "生成 CONFIG.md" test -f "$R/.ai-workflow/CONFIG.md"
 ok "生成 guide.html" test -s "$R/.ai-workflow/guide.html"
 ok "生成 inbox/doing/review/done/list" test -d "$R/.ai-workflow/inbox" -a -d "$R/.ai-workflow/doing" -a -d "$R/.ai-workflow/review" -a -d "$R/.ai-workflow/done" -a -d "$R/.ai-workflow/list"
+ok "生成 list/buglist.md" test -s "$R/.ai-workflow/list/buglist.md"
 ok "没有 scripts/" test ! -e "$R/.ai-workflow/scripts"
 ok "没有 docs/ 或 WORKFLOW.md" test ! -e "$R/.ai-workflow/docs" -a ! -e "$R/.ai-workflow/WORKFLOW.md"
 ok "没有 templates/ 或 config.env" test ! -e "$R/.ai-workflow/templates" -a ! -e "$R/.ai-workflow/config.env"
@@ -140,8 +141,8 @@ echo "G. 单一技能入口与最小资产"
 ok "skills 下只有一个 SKILL.md" test "$(find "$BASE/skills" -name SKILL.md | wc -l | tr -d ' ')" = 1
 ok "入口名为 ai-workflow" grep -q '^name: ai-workflow' "$SKILL/SKILL.md"
 ok "没有 ai-loop-task/ai-loop-init 技能目录" test ! -d "$BASE/skills/ai-loop-task" -a ! -d "$BASE/skills/ai-loop-init"
-ok "assets 是 README/TEMPLATE/CONFIG/guide.html" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 4
-ok "assets/README.md、TEMPLATE.md、CONFIG.md、guide.html 存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html"
+ok "assets 是 README/TEMPLATE/CONFIG/guide.html/buglist.md" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 5
+ok "assets/README.md、TEMPLATE.md、CONFIG.md、guide.html、buglist.md 存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html" -a -f "$SKILL/assets/buglist.md"
 ok "scripts 包含 detect/install/verify/check/status/archive" test -f "$SKILL/scripts/detect.sh" -a -f "$SKILL/scripts/install.sh" -a -f "$SKILL/scripts/verify.sh" -a -f "$SKILL/scripts/check.sh" -a -f "$SKILL/scripts/status.sh" -a -f "$SKILL/scripts/archive.sh"
 
 echo "H. 已有 v3 缺少 guide.html 时只补页面"

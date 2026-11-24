@@ -14,6 +14,7 @@ chk "存在 .ai-workflow/README.md" test -s .ai-workflow/README.md
 chk "存在 .ai-workflow/TEMPLATE.md" test -s .ai-workflow/TEMPLATE.md
 chk "存在 .ai-workflow/CONFIG.md" test -s .ai-workflow/CONFIG.md
 chk "存在 .ai-workflow/guide.html" test -s .ai-workflow/guide.html
+chk "存在 .ai-workflow/list/buglist.md" test -s .ai-workflow/list/buglist.md
 for d in inbox doing review done list; do
   chk "存在 .ai-workflow/$d/" test -d ".ai-workflow/$d"
 done

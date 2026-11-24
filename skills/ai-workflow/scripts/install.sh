@@ -49,6 +49,7 @@ README=".ai-workflow/README.md"
 TEMPLATE=".ai-workflow/TEMPLATE.md"
 CONFIG=".ai-workflow/CONFIG.md"
 GUIDE=".ai-workflow/guide.html"
+BUGLIST=".ai-workflow/list/buglist.md"
 DIRS=(inbox doing review done list)
 
 # 旧版结构：不自动升级
@@ -85,6 +86,11 @@ if [ -f "$GUIDE" ]; then
 else
   say CREATE "$GUIDE"
 fi
+if [ -f "$BUGLIST" ]; then
+  say SKIP "${BUGLIST}（已存在，保留用户内容）"
+else
+  say CREATE "$BUGLIST"
+fi
 for d in "${DIRS[@]}"; do
   [ -d ".ai-workflow/$d" ] && say SKIP ".ai-workflow/$d/" || say CREATE ".ai-workflow/$d/"
 done
@@ -116,6 +122,9 @@ if [ ! -f "$CONFIG" ]; then
 fi
 if [ ! -f "$GUIDE" ]; then
   cp "$A/guide.html" "$GUIDE"
+fi
+if [ ! -f "$BUGLIST" ]; then
+  cp "$A/buglist.md" "$BUGLIST"
 fi
 
 say DONE "初始化完成：只写 .ai-workflow/。未执行任何 git add / commit。"

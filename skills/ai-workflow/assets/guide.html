@@ -667,20 +667,20 @@
     <article class="card">
       <p class="k">01 · 初始化</p>
       <h2>摆好任务池</h2>
-      <p>在目标仓库的会话里说一次。只生成 <code>.ai-workflow/</code>，不改项目其他文件。</p>
+      <p>在目标仓库执行一次。生成 <code>.ai-workflow/</code> 与 <code>list/buglist.md</code>，不碰已有业务文件。</p>
       <code>/ai-workflow init</code>
     </article>
     <article class="card">
-      <p class="k">02 · 整理任务</p>
-      <h2>先出草稿</h2>
-      <p>手写，或让 AI 拆 <code>list/</code> 里的清单。你没明确要写入之前，不会进 inbox。</p>
-      <code>/ai-workflow task …</code>
+      <p class="k">02 · 整理与Bug</p>
+      <h2>拆分或Bug收割</h2>
+      <p>分析 <code>list/</code> 拆分需求；或用 <code>bugcheck</code> 检索 Bug 清单，或 <code>bugfix</code> 智能归并并一键修完。</p>
+      <code>/ai-workflow task / bugfix</code>
     </article>
     <article class="card">
-      <p class="k">03 · 执行任务</p>
-      <h2>领取一条</h2>
-      <p>只领 inbox 里 <code>status: new</code> 的任务。讨论中和阻塞中的不能领。</p>
-      <code>/ai-workflow 处理 T-20260101-001</code>
+      <p class="k">03 · 执行与跑批</p>
+      <h2>单任务或流水线</h2>
+      <p>认领单任务；或用连环 <code>base_ref</code> 串行/并行批量过夜跑批，第二天集中审查。</p>
+      <code>/ai-workflow 处理 / 串行推进</code>
     </article>
   </div>
 
@@ -938,23 +938,29 @@
       <h2>最佳实践与冲突处理</h2>
       <p>多 Agent 协作黄金流，以及应对文件交叉与合并冲突的防御机制。详见 <a href="README.md">README.md</a>。</p>
     </div>
-    <div class="sheet practices" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="sheet practices">
       <section>
-        <h2>黄金工作流（推荐协作方式）</h2>
+        <h2>黄金流与夜间跑批</h2>
         <ol>
-          <li><strong>主会话规划拆分</strong>：需求放入 <code>list/</code>，运行 <code>/ai-workflow task</code> 拆分，人工确认后写入 <code>inbox/</code>。</li>
-          <li><strong>多会话独立并行</strong>：在终端或 T3 开 2~3 个窗口，分别发送 <code>/ai-workflow 处理 T-xxx</code>。<strong>无需手动切换 worktree</strong>，各 Agent 自动在 <code>.ai-worktrees/</code> 下隔离工作，互不干扰；遇到歧义在该会话直接与你讨论。</li>
-          <li><strong>主工程统一审查与归档</strong>：各任务完成后在主工程审查 diff 并合并。全部完成后运行 <code>/ai-workflow archive</code> 一键归档并清理 worktrees 与分支。</li>
-          <li><strong>心智建议</strong>：单会话盲目拉起大量子代理易触碰 API 速率限制，且遇到歧义时无法替人决策；多独立会话人机协同更稳健。</li>
+          <li><strong>白天规划</strong>：需求放 <code>list/</code> 或随手记入 <code>list/buglist.md</code>，聊透方案后拆入 <code>inbox/</code>。</li>
+          <li><strong>串行连环 Worktree 跑批</strong>：下班前执行 <code>/ai-workflow 串行推进</code>，Task 1 送审后 Task 2 自动基于其分支递进开发；主分支 <code>main</code> 纯净安全。</li>
+          <li><strong>清晨集中验收</strong>：第二天上班统一在 <code>review/</code> 中审查合并，一键 <code>/ai-workflow archive</code> 归档清理。</li>
         </ol>
       </section>
       <section>
-        <h2>文件交叉与合并冲突防御</h2>
+        <h2>Bug 敏捷三级策略</h2>
         <ol>
-          <li><strong>绝对不自动合入基准分支</strong>：所有开发均限制在独立 worktree 与分支，<code>main</code> 主分支永远保持干净安全。</li>
-          <li><strong>模式 1：先后合并，后者在 worktree 中 rebase（最常用）</strong>：若任务 B 准备合并时与最新的 <code>main</code> 冲突，在任务 B 会话中指令 Agent：“rebase main 解决冲突并重跑测试”，绿灯后再行合并。</li>
-          <li><strong>模式 2：前后依赖指定 base_ref</strong>：若任务 B 强依赖任务 A，在元数据中写 <code>base_ref: ai/T-A</code>，直接基于 A 的分支开工。</li>
-          <li><strong>模式 3：核心模块大重构排期串行</strong>：涉及同一核心文件大面积重写时，拆分阶段排为先后顺序，不盲目并行。</li>
+          <li><strong>L1 微小调整（不入池）</strong>：错别字/1~2 行样式微调，日常会话直接改完 commit，拒绝流程官僚主义。</li>
+          <li><strong>L2 明确 Bug（极简直通车）</strong>：记入 <code>buglist.md</code>，输入 <code>/ai-workflow bugfix</code> 智能归并同模块问题、一键拆分并在专属 worktree 修完送审。</li>
+          <li><strong>L3 复杂 Bug（正规军）</strong>：重大隐蔽缺陷，先只读探索定位根因，方案批准后再行动代码。</li>
+        </ol>
+      </section>
+      <section>
+        <h2>文件交叉与冲突防御</h2>
+        <ol>
+          <li><strong>绝不自动合入基准分支</strong>：所有开发均限制在独立 worktree 沙盒，基准分支永远保持安全稳定。</li>
+          <li><strong>冲突在沙盒中解决</strong>：后合入任务在专属 worktree 中 <code>git rebase main</code>，跑通测试后再送审。</li>
+          <li><strong>强依赖指定 base_ref</strong>：前后依赖任务用 <code>base_ref: ai/T-前序</code> 串联；大重构排期串行推进。</li>
         </ol>
       </section>
     </div>

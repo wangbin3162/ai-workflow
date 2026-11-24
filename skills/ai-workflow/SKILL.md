@@ -1,18 +1,20 @@
 ---
 name: ai-workflow
-description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG、guide.html 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，guide.html 只是流转图解，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow 加提示词领取任务，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并；用 /ai-workflow archive 批量归档已完成任务并清理 worktree/分支。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「按任务池做一个任务」「用 worktree 让 agent 跑任务」「归档清理」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
+description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG、guide.html、list/buglist.md 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，guide.html 只是流转图解，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow bugcheck 检索 list/buglist.md 结合代码拆分低风险 bug 任务入 inbox 并标记；用 /ai-workflow bugfix 自动分析未处理 bug、智能归并同模块问题并一键批量推进送审；用 /ai-workflow 加提示词领取单任务或批量串行/并行推进任务包，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并；用 /ai-workflow archive 批量归档已完成任务并清理 worktree/分支。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「bugcheck / 检查 bug 清单」「bugfix / 自动修 bug」「串行/并行推进任务包」「按任务池做一个任务」「用 worktree 让 agent 跑任务」「归档清理」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
 ---
 
 # ai-workflow — 单一技能入口
 
-四个模式：
+核心模式表：
 
-| 用户说的 | 模式 | 做什么 |
+| 指令 / 提示词 | 模式 | 做什么 |
 | --- | --- | --- |
-| `/ai-workflow init`、「初始化 AI 工作流 / 任务池」 | **初始化** | 只写目标项目 `.ai-workflow/README.md` + `TEMPLATE.md` + `CONFIG.md` + `guide.html` + 五个任务目录 |
-| `/ai-workflow task`、「新增任务 / 拆分任务」 | **整理任务** | 按 README 模板帮用户写任务草稿；不自动创建、不实现 |
-| `/ai-workflow <提示词>`、「领取任务 / 按任务池做」 | **执行任务** | 领取 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
-| `/ai-workflow archive`、「归档清理 / 清理已完成任务」 | **归档清理** | 整理 `done/` 里的已完成任务和对应 worktree/分支 |
+| `/ai-workflow init`、「初始化任务池」 | **初始化** | 生成目标项目 `.ai-workflow/`（README、TEMPLATE、CONFIG、guide.html、list/buglist.md 与五个目录） |
+| `/ai-workflow task`、「新增/拆分任务」 | **整理任务** | 按 TEMPLATE 整理任务草稿；或分析 `list/` 里的清单拆分任务；默认不写 inbox |
+| `/ai-workflow bugcheck`、「检查 bug 清单」 | **Bug 拆分** | 检索 `list/buglist.md` 结合代码拆分低风险 bug 任务入 inbox，并在 buglist 中标记已拆分项 |
+| `/ai-workflow bugfix`、「自动修复 bug」 | **Bug 收割** | 自动读取未处理 bug，同模块智能归并，一键拆分并启动批量自动推进送审（适合下班前收割） |
+| `/ai-workflow 处理 T-xxx` / `串行/并行推进任务包` | **执行任务** | 单任务领取，或以连环 `base_ref` 串行流水线 / 独立并发推进任务包；探索 → 讨论/批准 → 验证 → 送审 |
+| `/ai-workflow archive`、「归档清理」 | **归档清理** | 整理 `done/` 里的已完成任务，批量清理对应的 `.ai-worktrees/` 与已合并分支 |
 
 旧入口 `ai-loop-init` / `ai-loop-task` 不再提供；旧 `.ai/` 与旧脚本不会被调用，也不自动迁移。
 
@@ -116,6 +118,21 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 用户明确确认后，才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不认领、不实现；
 - 不覆盖已有任务文件；`list/` 原文件由用户决定保留或删除。
 
+**Bug 清单拆分（`/ai-workflow bugcheck`）**：
+
+- 读取 `.ai-workflow/list/buglist.md`（或用户指定文件）中未处理 `[ ]` 的待办条目；
+- 结合代码库检索相关文件与上下文，按 TEMPLATE 拆分为 `type: bugfix`、`risk: low` 的任务写入 `inbox/`；
+- 验收标准必须写明回归测试命令或具体可观测检查步骤；
+- 自动将 `buglist.md` 中对应条目移入「已拆分处理 (Handled)」并标注生成的任务 ID（如 `- [x] ... -> T-xxx`）；
+- 仅拆分，不直接修改业务代码。
+
+**Bug 智能归并与自动收割（`/ai-workflow bugfix`）**：
+
+- 读取 `list/buglist.md` 中的所有待处理项；
+- **智能归并**：若多条 Bug 涉及同一模块或相同文件，自动归并为一个任务，杜绝后续文件交叉冲突；不同模块拆为独立任务；
+- 自动生成任务写入 `inbox/`，并同步更新 `buglist.md`；
+- 立即启动自动批量推进执行（见模式三），在专属 worktree 中修复、运行测试验证，并一并移交至 `review/`。
+
 ---
 
 ## 模式三：执行任务（`/ai-workflow <提示词>`）
@@ -194,6 +211,21 @@ bash <skill-dir>/scripts/verify.sh <目标>
 
 无法继续或人工拒绝：`status: blocked`，任务移到 `inbox/`，记录原因，删除锁，保留 worktree 和 diff。
 重新入池由用户补充信息后改 `status: new`。
+
+### 11. 批量推进任务包（串行流水线 vs 并行并发）
+
+用户输入 `/ai-workflow 串行推进 / 并行推进` 或 `run-all --serial / --parallel` 时：
+
+1. **串行连环 Worktree 模式（推荐，适合日积月累过夜跑批）**：
+   - Task 1 从基准分支（如 `main`）拉出分支 `ai/T-1`，在 `.ai-worktrees/T-1/` 中执行、验证并送入 `review/`；
+   - Task 2 自动以 Task 1 分支为基准（`base_ref: ai/T-1`）拉出 `ai/T-2`，在 `.ai-worktrees/T-2/` 中继承前序成果继续开发并送审；
+   - 依次层层递进，直至任务包完成。
+   - **核心收益**：`main` 分支在跑批期间保持 100% 干净；第二天用户统一在 `review/` 中集中审查与合并。
+2. **并行并发模式（适合解耦的无交叉任务）**：
+   - 仅当分析确认多个任务属于完全独立的模块且无文件重合时使用；
+   - 各任务分配独立的 worktree 并发执行并分别送审。
+3. **遇到歧义的容错处理**：
+   - 跑批过程中若某个任务出现未决歧义，该任务自动转为 `needs-discussion` 退回 `inbox/` 并释放锁，其余不依赖它的任务继续推进，绝不全线崩溃。
 
 ---
 

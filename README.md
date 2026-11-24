@@ -47,41 +47,50 @@ npx skills add wangbin3162/ai-workflow -a '*' -g
 
 ## 🚀 技能怎么使用
 
-在支持 Slash Command 的 Agent 会话中，通过单一入口 **`/ai-workflow`** 调度四大工作模式：
+在支持 Slash Command 的 Agent 会话中，通过单一入口 **`/ai-workflow`** 调度各项核心工作模式：
 
 | 指令 | 模式 | 作用 |
 | :--- | :--- | :--- |
-| **`/ai-workflow init`** | **初始化任务池** | 在目标项目根目录执行一次，只生成 `.ai-workflow/`（含配置、模板、图解与 5 个任务目录），不碰业务代码与根 `.gitignore`。 |
-| **`/ai-workflow task`** | **拆分与整理任务** | 将需求列表放进 `list/`，输入 `/ai-workflow task 分析 list/需求.md 并拆分任务`，AI 仅出草稿，你确认后再写入 `inbox/`。 |
-| **`/ai-workflow <提示词>`** | **执行任务** | 输入 `/ai-workflow 处理 T-xxx`。AI 自动原子加锁并在 `.ai-worktrees/<id>/` 独立沙盒中工作；遇歧义停下等批准，完成后送审。 |
+| **`/ai-workflow init`** | **初始化任务池** | 在目标项目根目录执行一次，生成 `.ai-workflow/`（含配置、模板、图解、`list/buglist.md` 与 5 个任务目录），不碰已有业务文件。 |
+| **`/ai-workflow task`** | **拆分与整理任务** | 将需求草稿放进 `list/`，输入 `/ai-workflow task 分析 list/需求.md 并拆分任务`，AI 仅出草稿，你确认后再写入 `inbox/`。 |
+| **`/ai-workflow bugcheck`** | **Bug 清单拆分** | 自动读取 `list/buglist.md`，结合代码库拆分为低风险 bugfix 任务入 `inbox/`，并在 buglist 中标记已拆分项。 |
+| **`/ai-workflow bugfix`** | **Bug 一键收割** | 自动读取未处理 bug，同模块智能归并，一键拆分并启动批量自动推进送审（适合下班前一键收割）。 |
+| **`/ai-workflow 处理 T-xxx`** | **单任务执行** | 自动原子加锁并在 `.ai-worktrees/<id>/` 独立沙盒中工作；遇歧义停下等批准，跑通测试后送审。 |
+| **`/ai-workflow 串行/并行推进`** | **任务包批量跑批** | 批量推进 `inbox/` 任务包：串行模式通过连环 `base_ref` 层层递进（夜间跑批神器）；并行模式多沙盒独立并发。 |
 | **`/ai-workflow archive`** | **归档清理** | 任务合并后，输入 `/ai-workflow archive` 批量清理已完成的 worktree、删除对应分支并归档任务文件。 |
 
 ---
 
 ## 💡 最佳协作实践（黄金工作流）
 
-通过底层「**原子任务锁（`.locks/`）**」与「**独立平级 worktree（`.ai-worktrees/<id>/`）**」，`ai-workflow` 天然支持多 Agent 并行：
+通过底层「**原子任务锁（`.locks/`）**」与「**独立平级 worktree（`.ai-worktrees/<id>/`）**」，`ai-workflow` 天然支持多 Agent 并行与夜间自动跑批：
 
 ```text
        ┌──────────────┐
-       │ 1. 主会话规划 │  /ai-workflow task 拆分需求草稿 -> 确认写入 inbox/
+       │ 1. 白天规划   │  需求放 list/ 或记入 list/buglist.md -> 聊透方案并拆分任务入 inbox/
        └──────┬───────┘
               ▼
-   ┌──────────────────────┐  各开一个窗口，输入 /ai-workflow 处理 T-xxx
-   │ 2. 多会话独立并行执行 │  无需手动切 worktree，物理目录隔离防冲突
+   ┌──────────────────────┐  日常开 2~3 个独立窗口，输入 /ai-workflow 处理 T-xxx；
+   │ 2. 执行与夜间跑批    │  或下班前执行 /ai-workflow 串行推进 (连环 base_ref 递进，main 分支纯净)；
    └──────────┬───────────┘  遇到业务歧义在当前窗口直面人类讨论 (needs-discussion)
               ▼
        ┌──────────────┐
-       │ 3. 主工程验收 │  人工审查 diff -> 人工 git merge -> /ai-workflow archive 一键归档
+       │ 3. 验收与归档 │  第二天到公司集中审查 diff -> 人工 git merge -> /ai-workflow archive 一键归档
        └──────────────┘
 ```
 
-1. **无需手动切 worktree**：Agent 认领任务后会自动创建并切换到专属 worktree，主工程根目录永远保持干净安全。
-2. **多独立窗口并行优于盲目子代理**：推荐在终端或 T3 中开 2~3 个独立会话窗口分别认领任务。上下文彻底隔离，遇到业务决策随时沟通。
-3. **文件交叉与冲突防御**：
-   - AI 绝不自动合入基准分支；
-   - 多个任务若修改同文件，后合入的任务直接在 worktree 中让 Agent `git rebase main` 并重跑测试后再次送审；
-   - 有明确强依赖的任务，在模板中填写 `base_ref: ai/T-前序任务` 串联开发。
+### 1. 任务包批量推进与夜间跑批模型
+- **串行连环 Worktree 模式（最常用）**：
+  Task 1 基于基准分支开工送审后，Task 2 自动以 `base_ref: ai/T-1` 为基准拉出新分支开工，层层递进。主分支 `main` 始终不被污染。下班前一条命令跑批，第二天集中审查合并。
+- **并行并发模式**：针对互相解耦、经分析无模块文件交叉的独立任务，由调度器分配独立沙盒并发执行。
+
+### 2. Bug 与轻量调整三级敏捷策略（拒绝流程官僚主义）
+- **L1 微小调整（直接改，不入池）**：文案、错别字、1~2 行样式微调，日常会话直接改完 commit，不走任务池。
+- **L2 明确的小 Bug / 样式修复（极简直通车）**：白天随手记入 `.ai-workflow/list/buglist.md`，下班前执行 `/ai-workflow bugfix` 智能归并、自动拆分并批量修完送审。
+- **L3 复杂 / 根因不明 Bug（严格正规军流转）**：涉及多模块联动、偶现或数据一致性的重大 Bug。先在会话中让 AI 只读探索定位根因，出具完整方案由你批准后，方可编码实施。
+
+### 3. 文件交叉与冲突防御
+- AI 绝不自动合入基准分支；发生冲突时后合入的任务直接在专属 worktree 中 `git rebase main` 并重跑测试后再次送审；强依赖任务用 `base_ref` 串联。
 
 ---
 
