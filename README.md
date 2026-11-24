@@ -51,13 +51,13 @@ npx skills add wangbin3162/ai-workflow -a '*' -g
 
 | 指令 | 模式 | 作用 |
 | :--- | :--- | :--- |
-| **`/ai-workflow init`** | **初始化任务池** | 在目标项目根目录执行一次，生成 `.ai-workflow/`（含配置、模板、图解、`list/buglist.md` 与 5 个任务目录），不碰已有业务文件。 |
-| **`/ai-workflow task`** | **拆分与整理任务** | 将需求草稿放进 `list/`，输入 `/ai-workflow task 分析 list/需求.md 并拆分任务`，AI 仅出草稿，你确认后再写入 `inbox/`。 |
+| **`/ai-workflow init`** | **初始化任务池** | 在目标项目根目录执行一次，生成 `.ai-workflow/`（含配置、模板、图解、`HISTORY.md`、`list/buglist.md` 与 5 个任务目录），不碰已有业务文件。 |
+| **`/ai-workflow task`** | **拆分与整理任务** | 将需求草稿放进 `list/`，输入 `/ai-workflow task 分析 list/需求.md 并拆分任务`，AI 仅出草稿，你确认后再写入 `inbox/` 并自动将原文件归档至 `list/archive/`。 |
 | **`/ai-workflow bugcheck`** | **Bug 清单拆分** | 自动读取 `list/buglist.md`，结合代码库拆分为低风险 bugfix 任务入 `inbox/`，并在 buglist 中标记已拆分项。 |
 | **`/ai-workflow bugfix`** | **Bug 一键收割** | 自动读取未处理 bug，同模块智能归并，一键拆分并启动批量自动推进送审（适合下班前一键收割）。 |
 | **`/ai-workflow 处理 T-xxx`** | **单任务执行** | 自动原子加锁并在 `.ai-worktrees/<id>/` 独立沙盒中工作；遇歧义停下等批准，跑通测试后送审。 |
 | **`/ai-workflow 串行/并行推进`** | **任务包批量跑批** | 批量推进 `inbox/` 任务包：串行模式通过连环 `base_ref` 层层递进（夜间跑批神器）；并行模式多沙盒独立并发。 |
-| **`/ai-workflow archive`** | **归档清理** | 任务合并后，输入 `/ai-workflow archive` 批量清理已完成的 worktree、删除对应分支并归档任务文件。 |
+| **`/ai-workflow archive`** | **归档清理** | 任务合并后，输入 `/ai-workflow archive` 按日目录（`archive/YYYYMMDD/`）批量清理 worktree、删除对应分支并同步更新 `HISTORY.md`。 |
 
 ---
 
@@ -92,6 +92,11 @@ npx skills add wangbin3162/ai-workflow -a '*' -g
 ### 3. 文件交叉与冲突防御
 - AI 绝不自动合入基准分支；发生冲突时后合入的任务直接在专属 worktree 中 `git rebase main` 并重跑测试后再次送审；强依赖任务用 `base_ref` 串联。
 
+### 4. HISTORY.md 全局索引与防撞号机制
+- 所有任务状态流转统一在 `.ai-workflow/HISTORY.md` 中按日期倒序沉淀；
+- 新建或拆分任务前，AI 必须读取当天最大编号自增（如已有 002 则新任务必为 003），彻底避免 ID 和 Git 分支重名冲突；
+- 归档清理时，任务文件自动按日移入 `archive/YYYYMMDD/` 目录，并同步回写合并记录至 `HISTORY.md`。
+
 ---
 
 ## 📚 详细文档导航
@@ -110,7 +115,7 @@ npx skills add wangbin3162/ai-workflow -a '*' -g
 # 脚本语法检查
 bash -n skills/ai-workflow/scripts/*.sh
 
-# 初始化/结构隔离回归测试（83 项检查）
+# 初始化/结构隔离回归测试（85 项检查）
 bash scripts/test-ai-workflow.sh
 
 # 目标项目结构验证

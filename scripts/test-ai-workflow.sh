@@ -42,13 +42,14 @@ ok "初始化成功" test -f "$R/.ai-workflow/README.md"
 ok "生成 TEMPLATE.md" test -f "$R/.ai-workflow/TEMPLATE.md"
 ok "生成 CONFIG.md" test -f "$R/.ai-workflow/CONFIG.md"
 ok "生成 guide.html" test -s "$R/.ai-workflow/guide.html"
+ok "生成 HISTORY.md" test -s "$R/.ai-workflow/HISTORY.md"
 ok "生成 inbox/doing/review/done/list" test -d "$R/.ai-workflow/inbox" -a -d "$R/.ai-workflow/doing" -a -d "$R/.ai-workflow/review" -a -d "$R/.ai-workflow/done" -a -d "$R/.ai-workflow/list"
 ok "生成 list/buglist.md" test -s "$R/.ai-workflow/list/buglist.md"
 ok "没有 scripts/" test ! -e "$R/.ai-workflow/scripts"
 ok "没有 docs/ 或 WORKFLOW.md" test ! -e "$R/.ai-workflow/docs" -a ! -e "$R/.ai-workflow/WORKFLOW.md"
 ok "没有 templates/ 或 config.env" test ! -e "$R/.ai-workflow/templates" -a ! -e "$R/.ai-workflow/config.env"
 ok "没有 .gitignore / .initialized / 示例任务" test ! -e "$R/.ai-workflow/.gitignore" -a ! -e "$R/.ai-workflow/.initialized" -a ! -e "$R/.ai-workflow/inbox/EXAMPLE-T-20260101-001.md"
-ok "根目录只有 README/TEMPLATE/CONFIG/guide.html 和五个目录" test "$(find "$R/.ai-workflow" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 9
+ok "根目录只有 README/TEMPLATE/CONFIG/guide.html/HISTORY.md 和五个目录" test "$(find "$R/.ai-workflow" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 10
 ok "AGENTS/CLAUDE/docs/根 .gitignore 未被修改" test "$(snap_out "$R")" = "$outside_before"
 ok "没有创建 .claude/ 或 docs/legacy" test ! -e "$R/.claude" -a ! -e "$R/docs/legacy"
 ok "初始化没有 git commit" test "$(git -C "$R" rev-list --count HEAD)" = 1
@@ -141,8 +142,8 @@ echo "G. 单一技能入口与最小资产"
 ok "skills 下只有一个 SKILL.md" test "$(find "$BASE/skills" -name SKILL.md | wc -l | tr -d ' ')" = 1
 ok "入口名为 ai-workflow" grep -q '^name: ai-workflow' "$SKILL/SKILL.md"
 ok "没有 ai-loop-task/ai-loop-init 技能目录" test ! -d "$BASE/skills/ai-loop-task" -a ! -d "$BASE/skills/ai-loop-init"
-ok "assets 是 README/TEMPLATE/CONFIG/guide.html/buglist.md" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 5
-ok "assets/README.md、TEMPLATE.md、CONFIG.md、guide.html、buglist.md 存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html" -a -f "$SKILL/assets/buglist.md"
+ok "assets 是 README/TEMPLATE/CONFIG/guide.html/buglist.md/HISTORY.md" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 6
+ok "assets/README.md、TEMPLATE.md、CONFIG.md、guide.html、buglist.md、HISTORY.md 存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html" -a -f "$SKILL/assets/buglist.md" -a -f "$SKILL/assets/HISTORY.md"
 ok "scripts 包含 detect/install/verify/check/status/archive" test -f "$SKILL/scripts/detect.sh" -a -f "$SKILL/scripts/install.sh" -a -f "$SKILL/scripts/verify.sh" -a -f "$SKILL/scripts/check.sh" -a -f "$SKILL/scripts/status.sh" -a -f "$SKILL/scripts/archive.sh"
 
 echo "H. 已有 v3 缺少 guide.html 时只补页面"
@@ -193,7 +194,7 @@ ok "archive --plan 不移动文件" test -f "$R/.ai-workflow/done/T-20260101-001
 ok "archive --plan 输出待归档任务" grep -q 'T-20260101-001' "$TMP/archive_plan.log"
 
 bash "$SKILL/scripts/archive.sh" "$R" --apply >"$TMP/archive_apply.log" 2>&1
-ok "archive --apply 移动任务到 archive/" test -f "$R/.ai-workflow/archive/T-20260101-001.md"
+ok "archive --apply 移动任务到按日 archive/YYYYMMDD/" test -f "$R/.ai-workflow/archive/20260101/T-20260101-001.md"
 ok "archive 移除 done 中原任务" test ! -e "$R/.ai-workflow/done/T-20260101-001.md"
 ok "archive 清理残留锁" test ! -e "$R/.ai-workflow/.locks/T-20260101-001"
 ok "archive 删除已合并分支" bash -c "! git -C '$R' show-ref --verify --quiet refs/heads/ai/T-20260101-001"

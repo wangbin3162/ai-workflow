@@ -15,11 +15,12 @@
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── guide.html     # 流转图解；执行规则以本文件为准
+├── HISTORY.md     # 任务全局历史与索引（防 ID 碰撞，按日期倒序）
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
 ├── done/          # done
-└── list/          # 临时任务列表 / 方案草稿，供 AI 拆分任务
+└── list/          # 临时任务列表 / buglist.md / 方案草稿，供 AI 拆分任务
 ```
 
 | status | 所在目录 | 含义 | 可领取 |
@@ -58,6 +59,7 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 规则：
 
 - `id` 必须与文件名一致，分支固定为 `ai/<id>`。
+- **防重名与序号自增**：新建任务前必须查阅 `HISTORY.md` 当天最大编号，确保 ID 递增（如已有 002 则新任务为 003），绝不与已归档或已执行任务重名；并在 `HISTORY.md` 当日段落下记录。
 - 模板分两部分：前半部分由用户填写（`id`、`title`、`type`、`status`、`risk`、`priority`、`created`、`base_ref`），后半部分由 AI 自动维护，无需手动编辑。
 - `risk`：`low` / `high`；缺失或写错按 `high`。`high` 只出方案，不改代码。
 - front-matter 只写 `key: value`，不要写行内注释，值里不要出现 ` #`。
@@ -71,9 +73,10 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 3. AI 只读分析列表，按 `TEMPLATE.md` 给出拆分方案：每条任务的标题、范围、验收标准、risk、
    依赖顺序；
 4. AI 默认只展示拆分结果，**不自动写 inbox**；
-5. 用户确认后，AI 才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不领取、不实现。
+5. 用户确认后，AI 才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不领取、不实现；
+6. **原清单自动归档**：确认写入 `inbox/` 后，原需求文件自动移入 `.ai-workflow/list/archive/<原文件名>`，保持 `list/` 根目录只保留待拆分的活跃文件。
 
-`list/` 只是输入区，没有状态含义；拆分完成后由用户决定保留或删除原列表。
+`list/` 只是输入区，没有状态含义；拆分完成后原清单已归档。
 
 ### 3.3 Bug 清单与快速收割（bugcheck 与 bugfix）
 
@@ -238,7 +241,8 @@ approved_note: <用户批准原话>
 1. 扫描 `done/` 目录，筛选 `status: done` 且 `merged_commit` 非空的任务；
 2. 默认只展示归档清单（任务 id、合并提交、目标分支），不直接操作；
 3. 用户确认后：
-   - 将任务文件移入 `.ai-workflow/archive/`；
+   - 将任务文件移入按日归档目录 `.ai-workflow/archive/YYYYMMDD/${id}.md`（自动创建）；
+   - 同步更新 `.ai-workflow/HISTORY.md` 中对应任务状态为 `[done]` 并记录合并证据；
    - 移除对应 worktree（`.ai-worktrees/<id>/`）；
    - 安全删除已合并的分支 `ai/<id>`（`git branch -d`，未合并的不强删）；
    - 清理残留锁 `.ai-workflow/.locks/<id>/`。

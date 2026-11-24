@@ -104,11 +104,12 @@ bash <skill-dir>/scripts/verify.sh <目标>
 
 任务由用户手写；没有自动建任务的工具。
 
-1. 读 `.ai-workflow/TEMPLATE.md` 和 README 的「任务模板与任务列表」「目录与状态」。
-2. 按模板起草；用户没说拆成几条就不要拆。
-3. `id` 与文件名一致，`status: new`；`risk` 拿不准写 `high`。
-4. 验收标准只写已核实的命令或可观察步骤；没核实过的写 `TODO:`。
-5. 复杂需求先讨论，把完整方案写进「## 方案」。
+1. 读 `.ai-workflow/TEMPLATE.md`、`HISTORY.md` 和 README 的「任务模板与任务列表」「目录与状态」。
+2. **防重名与序号自增**：新建或拆分任务前，**必须先查阅 `.ai-workflow/HISTORY.md`**，提取当天已有编号 `T-YYYYMMDD-xxx` 的最大序号（如已有 002 则新任务从 003 递增），彻底避免 ID 和 Git 分支重名冲突。并在 `HISTORY.md` 当天日期下同步插入任务记录。
+3. 按模板起草；用户没说拆成几条就不要拆。
+4. `id` 与文件名一致，`status: new`；`risk` 拿不准写 `high`。
+5. 验收标准只写已核实的命令或可观察步骤；没核实过的写 `TODO:`。
+6. 复杂需求先讨论，把完整方案写进「## 方案」。
 
 **分析 `list/` 拆分任务**：
 
@@ -116,7 +117,8 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 给出标题、范围、验收标准、risk、依赖顺序；
 - 默认只展示拆分结果，不写 inbox；
 - 用户明确确认后，才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不认领、不实现；
-- 不覆盖已有任务文件；`list/` 原文件由用户决定保留或删除。
+- **原清单自动归档**：确认写入 `inbox/` 后，原需求清单文件自动移入 `.ai-workflow/list/archive/<原文件名>`，保持 `list/` 根目录只保留待拆分的活跃清单；
+- 不覆盖已有任务文件。
 
 **Bug 清单拆分（`/ai-workflow bugcheck`）**：
 
@@ -249,10 +251,11 @@ bash <skill-dir>/scripts/verify.sh <目标>
 2. 展示归档清单（任务 id、标题、合并时间、目标分支），**默认只展示，不执行**。
 
 3. 用户确认后，对每个任务执行：
-   a. 移动任务文件到 `.ai-workflow/archive/`（自动创建）；
-   b. 如果对应 worktree 存在（`.ai-worktrees/<id>/`），执行 `git worktree remove`；
-   c. 如果对应分支存在（`ai/<id>`），且已被合并到 `merge_target`，执行 `git branch -d`；
-   d. 如果锁残留（`.ai-workflow/.locks/<id>/`），删除。
+   a. 移动任务文件到按日归档目录 `.ai-workflow/archive/YYYYMMDD/${id}.md`（自动创建）；
+   b. 同步更新 `.ai-workflow/HISTORY.md` 中的对应条目状态为 `[done]` 并追加合并证据；
+   c. 如果对应 worktree 存在（`.ai-worktrees/<id>/`），执行 `git worktree remove`；
+   d. 如果对应分支存在（`ai/<id>`），且已被合并到 `merge_target`，执行 `git branch -d`；
+   e. 如果锁残留（`.ai-workflow/.locks/<id>/`），删除。
 
 4. 汇报：归档了几个任务，清理了几个 worktree/分支，跳过了哪些（条件不满足或分支未合并）。
 

@@ -97,10 +97,21 @@ br_deleted=0
 for item in "${tasks[@]}"; do
   IFS='|' read -r id f commit target <<< "$item"
 
-  # 1. 移动任务文件
-  mv "$f" "$ARCHIVE_DIR/${id}.md"
+  # 1. 移动任务文件到按日归档目录（.ai-workflow/archive/YYYYMMDD/）
+  day_dir="$(echo "$id" | sed -E -n 's/^T-([0-9]{8})-.*/\1/p')"
+  [ -z "$day_dir" ] && day_dir="$(date +%Y%m%d)"
+  target_archive_dir="$ARCHIVE_DIR/$day_dir"
+  mkdir -p "$target_archive_dir"
+
+  mv "$f" "$target_archive_dir/${id}.md"
   archived_count=$((archived_count+1))
-  say ARCHIVE "$id -> $ARCHIVE_DIR/${id}.md"
+  say ARCHIVE "$id -> $target_archive_dir/${id}.md"
+
+  # 同步更新 HISTORY.md 中的记录（若存在）
+  history_file=".ai-workflow/HISTORY.md"
+  if [ -f "$history_file" ] && grep -q "\*\*$id\*\*" "$history_file" 2>/dev/null; then
+    sed -i.bak -E "s/- \\[[^\\]]+\\] \\*\\*${id}\\*\\*:(.*)/- [done] **${id}**:\1 (merged: ${commit:0:7})/" "$history_file" 2>/dev/null && rm -f "${history_file}.bak" || true
+  fi
 
   # 2. 清理 worktree
   wt_dir=".ai-worktrees/$id"
