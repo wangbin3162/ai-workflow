@@ -860,7 +860,7 @@
         <h2>主路径</h2>
         <ol>
           <li>复制 TEMPLATE.md 为 <code>inbox/T-20260101-001.md</code>。<code>id</code> 与文件名一致，<code>status: new</code>。验收标准写可执行的命令；没核实的写 TODO。</li>
-          <li>说 <code>/ai-workflow 处理 T-20260101-001</code>。AI 加锁、把文件移到 doing、准备分支 <code>ai/T-20260101-001</code> 的 worktree（位于平级 <code>.ai-worktrees/</code>）。</li>
+          <li>说 <code>/ai-workflow 处理 T-20260101-001</code>。AI 加锁、把文件移到 doing、准备分支 <code>ai/T-20260101-001</code> 的 worktree（位于平级 <code>.ai-worktrees/</code>），并拷贝 <code>.env*</code> 等必要环境配置。</li>
           <li>AI 只读探索，不改业务代码。没有重要歧义就直接实施。</li>
           <li>AI 只在 worktree 里改代码，把命令、目录、退出码、结果写入「验证记录」。没跑就写「未运行」。<code>risk: high</code> 只出方案，不改代码，送审时不能有 commit。</li>
           <li>工作区干净、验证记录非空后送审，文件进入 review。到这里停止，不合并。</li>
@@ -980,7 +980,7 @@
     },
     claim: {
       actor: "AI", tone: "ai", dir: "doing", status: "claimed", title: "领取加锁",
-      text: "只领 inbox 里 status 为 new 的任务。mkdir .locks/任务id 加锁，锁已在就停。文件移到 doing，写 claimed_by、claimed_at。worktree 在 .ai-worktrees/任务id/，分支 ai/任务id。基准顺序：任务 base_ref、CONFIG 的基准分支、当前 HEAD。已有同分支 worktree 就复用。",
+      text: "只领 inbox 里 status 为 new 的任务。mkdir .locks/任务id 加锁，锁已在就停。文件移到 doing，写 claimed_by、claimed_at。worktree 在 .ai-worktrees/任务id/，分支 ai/任务id。基准顺序：任务 base_ref、CONFIG 的基准分支、当前 HEAD。已有同分支 worktree 就复用。检出后自动拷贝主工程 .env 等被忽略环境配置。",
       say: "/ai-workflow 处理 T-20260101-001"
     },
     explore: {

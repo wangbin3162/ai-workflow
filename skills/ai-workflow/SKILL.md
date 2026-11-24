@@ -147,6 +147,7 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 任务移到 `doing/`，改 `status: claimed`，写 `claimed_by`、`claimed_at`。
 - 准备 worktree（位置 `.ai-worktrees/<id>/`）：基准 = 任务 `base_ref` → `CONFIG.md` 的基准分支 → 主 checkout 当前 HEAD。
 - 已有同分支 worktree 就复用；目录存在但不是该分支 worktree 就停止报告；不嵌套创建。
+- **环境文件复制**：由于 `.env*` 配置文件通常被 `.gitignore` 忽略，检出新 worktree 时不会自动携带。AI 检出 worktree 后，需主动检查主工程根目录是否存在 `.env`、`.env.local` 等必要配置文件，并拷贝至对应 worktree 根目录，避免启动服务或运行测试时因缺少环境配置报错。
 - 记录 `worktree`、`base_commit`。
 
 ### 2. 只读探索（此阶段不改业务代码）
