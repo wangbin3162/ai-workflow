@@ -63,6 +63,7 @@
 | --- | --- |
 | [`LESSONS.md`](LESSONS.md) | 修改代码前 |
 | [`docs/code-standards.md`](docs/code-standards.md) | 提交前、复盘时 |
+| [`docs/workflow-guide.md`](docs/workflow-guide.md) | 查阅完整任务流转与执行规格 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 改任务模型/目录/锁/worktree |
 | [`docs/quickstart.md`](docs/quickstart.md) | 第一次使用 |
 | [`docs/MIGRATION.md`](docs/MIGRATION.md) | 从旧 .ai / v1 / v2 迁移 |

@@ -1,85 +1,109 @@
 # ai-workflow
 
-用**用户手写**的任务驱动 AI 编码会话：AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 →
-人工审查 → 人工合并 → 归档。**AI 不合并、不 push、不删除 worktree。**
+> 用**用户手写任务 + 独立 worktree + 人工审查合并**驱动 AI 编码会话的 Agent 技能包。
 
-对外只有一个技能入口：**`/ai-workflow`**（`init` / `task` / `<提示词>` / `archive`）。
-项目原名 `ai-loop-starter`；本仓库不自动安装技能，需要你把 `skills/ai-workflow/` 放到
-Claude Code 能发现的位置。
+AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 → 人工审查 → 人工合并 → 归档。  
+**AI 绝不自动合并、不 push、不删除 worktree。**
 
-## 初始化后只有这些
+对外唯一技能入口：**`/ai-workflow`**
 
-```text
-.ai-workflow/
-├── README.md      # 说明 + 状态表 + AI 执行流程
-├── TEMPLATE.md    # 任务模板
-├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
-├── guide.html     # 流转图解；执行规则以 README 为准
-├── inbox/         # new / needs-discussion / blocked
-├── doing/         # claimed
-├── review/        # needs_review / review_approved
-├── done/          # done
-└── list/          # 临时任务列表/方案草稿，供 AI 拆分
-```
+---
 
-不生成脚本、`config.env`、`docs/`、`templates/` 或 `.gitignore`；项目配置独立放 `CONFIG.md`。
-任务流转由 AI 直接操作任务文件和 git；`.ai-workflow/` 是否纳入版本控制由项目自己决定。
+## 📦 技能安装
 
-## 四个入口（同一个技能）
+本项目已完全适配 open agent skills 生态标准（[skills.sh](https://skills.sh)）。只要有 Node.js 环境，无需手动克隆代码，使用 `npx` 即可一键安装：
 
-| 入口 | 用途 |
-| --- | --- |
-| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md`、`CONFIG.md`、`guide.html` + 五个目录；幂等，旧结构不自动升级 |
-| `/ai-workflow task` | 按 TEMPLATE 整理任务草稿；分析 `list/` 里的列表拆分任务；默认不写 inbox |
-| `/ai-workflow <提示词>` | 领取任务 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
-| `/ai-workflow archive` | 批量整理归档 `done/` 里的已完成任务，清理对应的 `.ai-worktrees/` 与已合并分支 |
-
-## 关键行为
-
-- **歧义先讨论**：`needs-discussion` 在 `inbox/`，不得被当作新任务领取。
-- **恢复需要有版本的批准**：`plan_version` + 「## 方案」sha256 + 用户原话；方案变化旧批准失效。
-- **审查通过不等于合并**：`review_approved` 仍留在 `review/`；`done` 必须有目标分支与合并提交证据。
-- **两种写者共用任务锁**：`.ai-workflow/.locks/<id>/`（`mkdir`），会话异常后由人确认再删。
-- **不自动提交任务状态、不合并、不 push、不删 worktree**。
-
-## 最短流程
+### 1. 全局安装（推荐，所有项目可用）
 
 ```bash
-# 在目标项目（Claude Code/T3 会话）
-/ai-workflow init
-
-# 用户按 .ai-workflow/TEMPLATE.md 手写任务；列表可放 .ai-workflow/list/
-# 在会话里：
-/ai-workflow task 分析 list/需求列表.md 并拆分任务
-/ai-workflow 处理 T-20260101-001
+npx skills add wangbin3162/ai-workflow -g
 ```
 
-AI 会按 `.ai-workflow/README.md` 完成领取、探索、讨论、批准、实施、验证、送审；
-人工审查、合并、归档同样按该文件执行。
-
-## 源包结构
-
-```text
-skills/ai-workflow/          # 唯一技能入口
-  SKILL.md
-  assets/README.md           # 目标 .ai-workflow/ 的说明与执行规则
-  assets/TEMPLATE.md         # 目标 .ai-workflow/ 的任务模板
-  assets/CONFIG.md           # 目标 .ai-workflow/ 的项目配置模板
-  assets/guide.html          # 目标 .ai-workflow/ 的流转图解
-  scripts/                   # detect / install / verify / check / status / archive（技能自身工具，不随初始化分发）
-  references/                # 设计说明、旧入口归档
-  evals/evals.json
-scripts/test-ai-workflow.sh  # 初始化/结构回归测试
-docs/                        # ARCHITECTURE / quickstart / MIGRATION / code-standards
-```
-
-## 开发与检查
+### 2. 当前项目安装
 
 ```bash
+npx skills add wangbin3162/ai-workflow
+```
+
+### 3. 为指定 Agent 安装
+
+支持 Claude Code、Cursor、Antigravity 等主流 Coding Agent：
+
+```bash
+# 只安装给 Claude Code
+npx skills add wangbin3162/ai-workflow -a claude-code -g
+
+# 一键安装给系统中检测到的所有 Agent
+npx skills add wangbin3162/ai-workflow -a '*' -g
+```
+
+### 4. 手动安装（离线 / 本地开发）
+
+克隆本仓库后，将 `skills/ai-workflow/` 目录软链或复制到你的 Agent 技能目录中：
+- Claude Code 全局目录：`~/.claude/skills/ai-workflow/`
+- 项目级目录：`.claude/skills/ai-workflow/` 或 `.agents/skills/ai-workflow/`
+
+---
+
+## 🚀 技能怎么使用
+
+在支持 Slash Command 的 Agent 会话中，通过单一入口 **`/ai-workflow`** 调度四大工作模式：
+
+| 指令 | 模式 | 作用 |
+| :--- | :--- | :--- |
+| **`/ai-workflow init`** | **初始化任务池** | 在目标项目根目录执行一次，只生成 `.ai-workflow/`（含配置、模板、图解与 5 个任务目录），不碰业务代码与根 `.gitignore`。 |
+| **`/ai-workflow task`** | **拆分与整理任务** | 将需求列表放进 `list/`，输入 `/ai-workflow task 分析 list/需求.md 并拆分任务`，AI 仅出草稿，你确认后再写入 `inbox/`。 |
+| **`/ai-workflow <提示词>`** | **执行任务** | 输入 `/ai-workflow 处理 T-xxx`。AI 自动原子加锁并在 `.ai-worktrees/<id>/` 独立沙盒中工作；遇歧义停下等批准，完成后送审。 |
+| **`/ai-workflow archive`** | **归档清理** | 任务合并后，输入 `/ai-workflow archive` 批量清理已完成的 worktree、删除对应分支并归档任务文件。 |
+
+---
+
+## 💡 最佳协作实践（黄金工作流）
+
+通过底层「**原子任务锁（`.locks/`）**」与「**独立平级 worktree（`.ai-worktrees/<id>/`）**」，`ai-workflow` 天然支持多 Agent 并行：
+
+```text
+       ┌──────────────┐
+       │ 1. 主会话规划 │  /ai-workflow task 拆分需求草稿 -> 确认写入 inbox/
+       └──────┬───────┘
+              ▼
+   ┌──────────────────────┐  各开一个窗口，输入 /ai-workflow 处理 T-xxx
+   │ 2. 多会话独立并行执行 │  无需手动切 worktree，物理目录隔离防冲突
+   └──────────┬───────────┘  遇到业务歧义在当前窗口直面人类讨论 (needs-discussion)
+              ▼
+       ┌──────────────┐
+       │ 3. 主工程验收 │  人工审查 diff -> 人工 git merge -> /ai-workflow archive 一键归档
+       └──────────────┘
+```
+
+1. **无需手动切 worktree**：Agent 认领任务后会自动创建并切换到专属 worktree，主工程根目录永远保持干净安全。
+2. **多独立窗口并行优于盲目子代理**：推荐在终端或 T3 中开 2~3 个独立会话窗口分别认领任务。上下文彻底隔离，遇到业务决策随时沟通。
+3. **文件交叉与冲突防御**：
+   - AI 绝不自动合入基准分支；
+   - 多个任务若修改同文件，后合入的任务直接在 worktree 中让 Agent `git rebase main` 并重跑测试后再次送审；
+   - 有明确强依赖的任务，在模板中填写 `base_ref: ai/T-前序任务` 串联开发。
+
+---
+
+## 📚 详细文档导航
+
+- 📖 [docs/workflow-guide.md](docs/workflow-guide.md) —— **任务流转与执行完整指南**（初始化至 `.ai-workflow/README.md` 的详细规格说明）
+- ⚡️ [docs/quickstart.md](docs/quickstart.md) —— **极简上手指引**（新手 5 分钟上手）
+- 🏛️ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) —— **系统架构与设计说明**
+- 📏 [docs/code-standards.md](docs/code-standards.md) —— **代码规范与验收标准**
+- 🔄 [docs/MIGRATION.md](docs/MIGRATION.md) —— **从旧版 .ai/v1/v2 结构迁移指引**
+
+---
+
+## 🛠 本地开发与测试
+
+```bash
+# 脚本语法检查
 bash -n skills/ai-workflow/scripts/*.sh
-bash scripts/test-ai-workflow.sh     # 83 项隔离检查
-bash skills/ai-workflow/scripts/verify.sh <目标项目>
-```
 
-真实 `claude -p` 没有在真实项目里验证；本工作流不随初始化分发运行脚本，
-任务流转由会话里的 AI 按 README 执行。
+# 初始化/结构隔离回归测试（83 项检查）
+bash scripts/test-ai-workflow.sh
+
+# 目标项目结构验证
+bash skills/ai-workflow/scripts/verify.sh <目标目录>
+```
