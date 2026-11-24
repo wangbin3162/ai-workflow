@@ -64,6 +64,9 @@ AI 会按 README：
 
 - 人工查看 diff 与「## 验证记录」；
 - 人工审查通过：AI 记录 `review_approved_commit`（等于分支 HEAD）、status `review_approved`；
+- 人工审查不通过：你写清拒绝原因与修改要求，AI 把 status 改为 `blocked`、任务移回 `inbox/`
+  并删除锁；分支、worktree 和已有改动保留。`blocked` 不能当新任务领取，你补充信息或给出
+  修改意见、把 status 改回 `new` 后，AI 才能重新认领续做；
 - 人工执行合并；
 - AI 校验合并提交在目标分支上，记录 `merged_commit`、`merge_target`、`merge_method`，
   status `done` 并移到 `done/`。
