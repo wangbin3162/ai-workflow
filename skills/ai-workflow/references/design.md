@@ -1,9 +1,10 @@
 # 设计说明
 
-## 为什么只生成 README/TEMPLATE/CONFIG + 五个目录
+## 为什么生成 README/TEMPLATE/CONFIG/guide.html + 五个目录
 
-- 初始化产物越少，用户越容易找到入口；说明集中在一个 README，任务模板单独一个 TEMPLATE.md，
-  项目配置单独一个 CONFIG.md，避免 README/WORKFLOW/docs 多处漂移。
+- 初始化产物越少，用户越容易找到入口。执行规则只放 README，任务模板放 TEMPLATE.md，
+  项目配置放 CONFIG.md。`guide.html` 只画流转和操作，避免再写一份规则；冲突时以 README 为准。
+- 已存在的 guide.html 视为用户文件，重复 init 不覆盖；缺失则补上。
 - 目录按生命周期压缩为四个：`inbox`（new/needs-discussion/blocked）、`doing`（claimed）、
   `review`（needs_review/review_approved）、`done`（done）。`discussion`、`approved`、`blocked`
   不再单独建目录，状态写在 front-matter 里。
@@ -31,12 +32,16 @@
 - 审查通过不等于合并；`done` 必须有目标分支与合并提交证据；squash/rebase 只能确认合并提交
   在目标分支上，无法证明内容等价。
 - 任务锁是 `mkdir`；异常退出的锁由人确认后删除，不自动抢占。
-- worktree 复用已有分支/目录；不嵌套、不删除、不切用户分支。
-- 不自动提交任务状态、不合并、不 push、不删 worktree。
+- worktree 设在平级目录 `.ai-worktrees/<id>/`：与任务池目录 `.ai-workflow/` 平级隔离，避免嵌套，也避免用户将任务池纳入版本控制时误包含 worktree。
+- 任务模板分层：TEMPLATE.md 明确区分「用户填写」与「AI 自动维护」，降低手写心智负担。
+- 归档清理支持 `/ai-workflow archive`：可批量整理 done/ 任务到 archive/，安全清理 worktree 与已合并分支。
+- 提供只读辅助脚本（`check.sh`、`status.sh`、`archive.sh`）：作为技能自身的开发与排查工具，不随初始化分发到目标项目。
+- 不自动提交任务状态、不合并、不 push、不删未合并的 worktree/分支。
 
 ## 已知限制
 
 - AI 是否严格遵守 README 规则无法由脚本证明；
 - squash/rebase 的内容等价无法用 sha 证明；
 - 没有 `.claude/settings.json` 的 permissions/hook 层护栏；
-- 真实 `claude -p` 未验证，且本工作流不再随初始化分发 runner。
+- 真实 `claude -p` 未验证，且本工作流不再随初始化分发 runner；
+- `guide.html` 只负责图解，可能落后于 README。执行以 README 为准。

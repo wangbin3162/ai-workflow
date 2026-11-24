@@ -13,6 +13,7 @@
 ├── README.md
 ├── TEMPLATE.md
 ├── CONFIG.md
+├── guide.html
 ├── inbox/
 ├── doing/
 ├── review/
@@ -20,7 +21,8 @@
 └── list/
 ```
 
-不生成脚本、额外文档，也不改 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+不生成脚本，也不改 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+用浏览器打开 `.ai-workflow/guide.html` 看流转；执行规则以 README 为准。
 `CONFIG.md` 已预填当前分支；初始化会话按目标 `AGENTS.md` / README / docs / CI 验证命令后，
 补测试 / 构建命令与依赖安装。运行 `bash skills/ai-workflow/scripts/verify.sh <目标>` 检查结构。
 
@@ -43,7 +45,7 @@ AI 默认只展示拆分草稿；你确认后才写 inbox。
 AI 会按 README：
 
 1. `mkdir .ai-workflow/.locks/<id>` 加锁；
-2. 任务移到 `doing/`，准备 worktree（分支 `ai/<id>`）；
+2. 任务移到 `doing/`，准备 worktree（位置 `.ai-worktrees/<id>/`，分支 `ai/<id>`）；
 3. 只读探索；
 4. 有重要歧义 → 写「## 讨论」→ status `needs-discussion`、移回 inbox、释放锁，保留已有改动；
 5. 用户补方案 → 计算 sha256 → 用户明确批准 → 恢复；
@@ -69,7 +71,13 @@ AI 会按 README：
 squash/rebase 只能确认合并提交在目标分支上，无法用 sha 证明内容等价，必须写明。
 审查通过不等于已合并；没有合并证据不归档。
 
-## 6. 旧结构
+## 6. 归档清理与辅助检查
+
+- 归档清理：在会话里输入 `/ai-workflow archive`（或「归档清理」），AI 会展示 `done/` 中可归档的任务清单，确认后自动将任务文件移入 `.ai-workflow/archive/`，移除对应 worktree 并安全删除已合并的分支。
+- 运行时检查：技能自带 `bash skills/ai-workflow/scripts/check.sh <目标>` 检查任务文件状态与锁一致性。
+- 状态总览：技能自带 `bash skills/ai-workflow/scripts/status.sh <目标>` 快速查看任务在各阶段的统计。
+
+## 7. 旧结构
 
 旧的 `.ai/`、v1/v2 `.ai-workflow` 结构、旧 `scripts/ai-loop.sh` 都不会自动迁移，
 见 [MIGRATION.md](MIGRATION.md)。

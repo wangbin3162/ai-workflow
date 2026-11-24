@@ -8,12 +8,13 @@
 #   .ai-workflow/README.md
 #   .ai-workflow/TEMPLATE.md
 #   .ai-workflow/CONFIG.md       # 基准分支预填当前分支
+#   .ai-workflow/guide.html      # 流转图解；已存在则保留
 #   .ai-workflow/{inbox,doing,review,done,list}/
 #
 # 原则：
 #   - 只写 .ai-workflow/，不碰 AGENTS.md、CLAUDE.md、docs/、根 .gitignore
 #   - 不生成 .gitignore / config.env / scripts / docs / templates
-#   - README 已存在且带 v3 标记时视为用户文件；TEMPLATE / CONFIG 已存在时也保留
+#   - README 已存在且带 v3 标记时视为用户文件；TEMPLATE / CONFIG / guide.html 已存在时也保留
 #   - 旧版结构（.initialized / v1 / v2）不自动升级，停止并提示人工迁移
 set -euo pipefail
 
@@ -30,7 +31,7 @@ while [ $# -gt 0 ]; do
     --target) TARGET="${2:-}"; shift 2 ;;
     --plan)   MODE="plan"; shift ;;
     --apply)  MODE="apply"; shift ;;
-    -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "未知参数：$1" ;;
   esac
 done
@@ -47,6 +48,7 @@ git rev-parse HEAD >/dev/null 2>&1 || die "仓库还没有任何提交：先做�
 README=".ai-workflow/README.md"
 TEMPLATE=".ai-workflow/TEMPLATE.md"
 CONFIG=".ai-workflow/CONFIG.md"
+GUIDE=".ai-workflow/guide.html"
 DIRS=(inbox doing review done list)
 
 # 旧版结构：不自动升级
@@ -78,6 +80,11 @@ if [ -f "$CONFIG" ]; then
 else
   say CREATE "${CONFIG}（预填当前分支，测试命令留 TODO）"
 fi
+if [ -f "$GUIDE" ]; then
+  say SKIP "${GUIDE}（已存在，保留用户内容）"
+else
+  say CREATE "$GUIDE"
+fi
 for d in "${DIRS[@]}"; do
   [ -d ".ai-workflow/$d" ] && say SKIP ".ai-workflow/$d/" || say CREATE ".ai-workflow/$d/"
 done
@@ -107,8 +114,12 @@ if [ ! -f "$CONFIG" ]; then
   escaped_branch="$(printf '%s' "$current_branch" | sed 's/[&|\\]/\\&/g')"
   sed "s|{{CURRENT_BRANCH}}|$escaped_branch|g" "$A/CONFIG.md" > "$CONFIG"
 fi
+if [ ! -f "$GUIDE" ]; then
+  cp "$A/guide.html" "$GUIDE"
+fi
 
 say DONE "初始化完成：只写 .ai-workflow/。未执行任何 git add / commit。"
+say NEXT "用浏览器打开 .ai-workflow/guide.html 看流转；执行规则以 README.md 为准"
 say NEXT "1) 打开 .ai-workflow/CONFIG.md，补测试 / 构建命令与依赖安装"
 say NEXT "2) 复制 .ai-workflow/TEMPLATE.md 到 inbox/ 手写任务；列表/方案可放 list/"
 say NEXT "3) 在 Claude/T3 会话里用 /ai-workflow 加提示词领取或拆分任务"

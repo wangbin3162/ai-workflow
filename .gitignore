@@ -1,12 +1,14 @@
 # ai-workflow 运行时产物（.ai-workflow/.gitignore 也会覆盖）
 .ai-workflow
+.ai-worktrees
 *.result.json
 *.stderr.log
 *.setup.log
 *.tmp
 *.tmp.*
 *.log
-.claude
+.claude/*
+!.claude/commands.md
 
 # 系统 / 编辑器
 .DS_Store

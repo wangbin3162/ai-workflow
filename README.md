@@ -3,7 +3,7 @@
 用**用户手写**的任务驱动 AI 编码会话：AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 →
 人工审查 → 人工合并 → 归档。**AI 不合并、不 push、不删除 worktree。**
 
-对外只有一个技能入口：**`/ai-workflow`**（`init` / `task` / 加提示词）。
+对外只有一个技能入口：**`/ai-workflow`**（`init` / `task` / `<提示词>` / `archive`）。
 项目原名 `ai-loop-starter`；本仓库不自动安装技能，需要你把 `skills/ai-workflow/` 放到
 Claude Code 能发现的位置。
 
@@ -14,6 +14,7 @@ Claude Code 能发现的位置。
 ├── README.md      # 说明 + 状态表 + AI 执行流程
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
+├── guide.html     # 流转图解；执行规则以 README 为准
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
@@ -24,13 +25,14 @@ Claude Code 能发现的位置。
 不生成脚本、`config.env`、`docs/`、`templates/` 或 `.gitignore`；项目配置独立放 `CONFIG.md`。
 任务流转由 AI 直接操作任务文件和 git；`.ai-workflow/` 是否纳入版本控制由项目自己决定。
 
-## 三个入口（同一个技能）
+## 四个入口（同一个技能）
 
 | 入口 | 用途 |
 | --- | --- |
-| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md`、`CONFIG.md` + 五个目录；幂等，旧结构不自动升级 |
+| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md`、`CONFIG.md`、`guide.html` + 五个目录；幂等，旧结构不自动升级 |
 | `/ai-workflow task` | 按 TEMPLATE 整理任务草稿；分析 `list/` 里的列表拆分任务；默认不写 inbox |
 | `/ai-workflow <提示词>` | 领取任务 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
+| `/ai-workflow archive` | 批量整理归档 `done/` 里的已完成任务，清理对应的 `.ai-worktrees/` 与已合并分支 |
 
 ## 关键行为
 
@@ -63,7 +65,8 @@ skills/ai-workflow/          # 唯一技能入口
   assets/README.md           # 目标 .ai-workflow/ 的说明与执行规则
   assets/TEMPLATE.md         # 目标 .ai-workflow/ 的任务模板
   assets/CONFIG.md           # 目标 .ai-workflow/ 的项目配置模板
-  scripts/                   # detect / install / verify（技能自身工具，不随初始化分发）
+  assets/guide.html          # 目标 .ai-workflow/ 的流转图解
+  scripts/                   # detect / install / verify / check / status / archive（技能自身工具，不随初始化分发）
   references/                # 设计说明、旧入口归档
   evals/evals.json
 scripts/test-ai-workflow.sh  # 初始化/结构回归测试
@@ -74,7 +77,7 @@ docs/                        # ARCHITECTURE / quickstart / MIGRATION / code-stan
 
 ```bash
 bash -n skills/ai-workflow/scripts/*.sh
-bash scripts/test-ai-workflow.sh     # 54 项隔离检查
+bash scripts/test-ai-workflow.sh     # 83 项隔离检查
 bash skills/ai-workflow/scripts/verify.sh <目标项目>
 ```
 

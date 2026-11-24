@@ -8,7 +8,7 @@
 
 ### 1. 关键行为有能区分修复前后的检查
 
-改 `skills/ai-workflow/scripts/` 或 `assets/README.md` / `assets/CONFIG.md` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
+改 `skills/ai-workflow/scripts/` 或 `assets/README.md` / `assets/CONFIG.md` / `assets/guide.html` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
 把旧代码放回去跑新用例，应出现**真的 `FAIL`**，并点名具体行为；编译错误、跳过、断言缺失都不算。
 反向验证：在可安全还原的自有改动上，手工改坏一处，确认用例变红；还原后确认变绿。
 
@@ -27,7 +27,7 @@
 - `bash scripts/test-ai-workflow.sh` —— 初始化/结构回归测试
 - `bash skills/ai-workflow/scripts/verify.sh <目标>` —— 目标项目结构验证
 
-**当前基线（实测值只记在这里）：** 54 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
+**当前基线（实测值只记在这里）：** 83 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
 
 ### 4. 尽可能真实使用
 

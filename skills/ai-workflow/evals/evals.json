@@ -6,9 +6,9 @@
       "name": "init-minimal-structure",
       "prompt": "/ai-workflow init。帮我初始化 AI 任务池工作流，别提交。",
       "fixture": "git 仓库：README.md、已提交的 AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore，没有 .ai-workflow/",
-      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md、CONFIG.md 和 inbox/doing/review/done/list；CONFIG 预填当前分支；不生成脚本、config.env、docs、templates、.gitignore；不提交",
+      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md、CONFIG.md、guide.html 和 inbox/doing/review/done/list；CONFIG 预填当前分支；不生成脚本、config.env、docs、templates、.gitignore；不提交",
       "assertions": [
-        ".ai-workflow 下只有 README.md、TEMPLATE.md、CONFIG.md + 五个目录",
+        ".ai-workflow 下只有 README.md、TEMPLATE.md、CONFIG.md、guide.html + 五个目录",
         "没有 .ai-workflow/scripts、docs、templates、config.env、.gitignore、.initialized",
         "存在 .ai-workflow/TEMPLATE.md、CONFIG.md 和 .ai-workflow/list/",
         "CONFIG.md 的基准分支等于当前分支，测试命令仍为 TODO",
@@ -85,12 +85,24 @@
       "name": "single-entry-minimal-assets",
       "prompt": "这个仓库有几个 AI 工作流技能入口？初始化会生成脚本吗？",
       "fixture": "源包 skills/ 与 assets/",
-      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README/TEMPLATE/CONFIG + 五目录，不分发脚本",
+      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README/TEMPLATE/CONFIG/guide.html + 五目录，不分发脚本",
       "assertions": [
         "skills/ 下只有一个 SKILL.md",
         "SKILL.md 的 name 为 ai-workflow",
-        "assets/ 只有 README.md、TEMPLATE.md、CONFIG.md",
+        "assets/ 只有 README.md、TEMPLATE.md、CONFIG.md、guide.html",
         "不再保留旧的脚本版状态机"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "archive-mode-cleans-merged-tasks",
+      "prompt": "/ai-workflow archive。帮我清理已完成的任务",
+      "fixture": "已初始化的仓库，done/ 下有已合并任务与未合并任务，以及对应的 worktree 和分支",
+      "expected_output": "只归档 status: done 且有 merged_commit 的任务，移动到 archive/，移除 worktree，只删除已合并的分支，不强删未合并分支",
+      "assertions": [
+        "待归档任务移入 .ai-workflow/archive/",
+        "未合并的分支不被删除",
+        "非 done 状态的任务不被移动"
       ]
     }
   ]

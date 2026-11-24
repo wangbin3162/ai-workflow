@@ -1,0 +1,563 @@
+<!-- ai-workflow:guide-v1 — 流转图解。执行规则以 README.md 为准。重复 init 会保留本文件。 -->
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>任务怎么流转 · ai-workflow</title>
+<style>
+  :root {
+    --paper: #e7e1d4;
+    --sheet: #f7f4ee;
+    --ink: #1c1915;
+    --muted: #5e584f;
+    --line: #c9c1b2;
+    --ai: #145e56;
+    --ai-soft: #dcebe8;
+    --human: #9a3f22;
+    --human-soft: #f6e4dc;
+    --stop: #7a2430;
+    --stop-soft: #f6e0e2;
+    --inbox: #8a8175;
+    --doing: #145e56;
+    --review: #9a3f22;
+    --done: #1c1915;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0) 220px),
+      radial-gradient(circle at 1px 1px, rgba(28,25,21,.045) 1px, transparent 0);
+    background-size: auto, 16px 16px;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  a { color: var(--ai); }
+  code, .mono {
+    font-family: "SF Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: .92em;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 20px 72px; }
+  header.top { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 22px; }
+  .plate { margin: 0 0 8px; letter-spacing: .16em; font-size: 12px; color: var(--muted); }
+  h1 { margin: 0; font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Palatino, serif; font-size: 40px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+  .lead { margin: 10px 0 0; max-width: 46em; color: var(--muted); }
+  .rule-link { white-space: nowrap; border-bottom: 1px solid var(--ink); color: var(--ink); text-decoration: none; padding-bottom: 2px; }
+  .modes, .gates, .dirs, .sheet { display: grid; gap: 12px; }
+  .modes { grid-template-columns: repeat(3, 1fr); margin: 22px 0; }
+  .card, .sheet, .stage, .gate, .dir {
+    background: var(--sheet);
+    border: 1px solid var(--ink);
+  }
+  .card { padding: 14px 14px 12px; }
+  .card .k { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+  .card h2, .block h2, .sheet h2 { font-family: "Songti SC", "Noto Serif SC", Palatino, serif; font-size: 20px; margin: 0 0 6px; font-weight: 600; }
+  .card p, .gate p, .dir p { margin: 0; }
+  .card code { display: inline-block; margin-top: 8px; background: #efeae1; padding: 2px 6px; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+  .board { padding: 14px 14px 10px; min-width: 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  button {
+    font: inherit; color: var(--ink); background: transparent;
+    border: 1px solid var(--ink); padding: 4px 10px; cursor: pointer;
+  }
+  button[aria-pressed="true"], button.primary { background: var(--ink); color: var(--sheet); }
+  button:focus-visible, .node:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+  .hint { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .scroll { overflow-x: auto; border-top: 1px solid var(--line); padding-top: 8px; }
+  svg { width: 1220px; height: auto; display: block; }
+  .rail { fill: none; stroke: var(--ink); stroke-opacity: .28; stroke-width: 2; stroke-dasharray: 2 7; animation: march 1.6s linear infinite; }
+  .edge { fill: none; stroke: var(--ink); stroke-width: 1.6; opacity: .4; }
+  .edge.branch { stroke: var(--human); }
+  .edge.live { opacity: 1; stroke-width: 2.4; stroke-dasharray: 7 6; animation: march .7s linear infinite; }
+  .edge.live.ai { stroke: var(--ai); }
+  .edge.live.human { stroke: var(--human); }
+  .edge.live.stop { stroke: var(--stop); }
+  @keyframes march { to { stroke-dashoffset: -26; } }
+  .node { cursor: pointer; }
+  .node .cardbox { fill: #fffdf8; stroke: var(--ink); stroke-width: 1.2; }
+  .node.active .cardbox { stroke-width: 2.4; }
+  .node.tone-ai.active .cardbox { fill: var(--ai-soft); }
+  .node.tone-human.active .cardbox { fill: var(--human-soft); }
+  .node.tone-stop.active .cardbox { fill: var(--stop-soft); }
+  .node .who, .node .dir { font-size: 12px; fill: var(--muted); }
+  .node .name { font-size: 16px; fill: var(--ink); font-family: "Songti SC", "Noto Serif SC", Palatino, serif; }
+  .tick-inbox { fill: var(--inbox); }
+  .tick-doing { fill: var(--doing); }
+  .tick-review { fill: var(--review); }
+  .tick-done { fill: var(--done); }
+  .tick-stop { fill: var(--stop); }
+  .lamp { fill: var(--ai); opacity: 0; }
+  .lamp.on { opacity: 1; }
+  .lamp.human { fill: var(--human); }
+  .lamp.stop { fill: var(--stop); }
+  .edge-label { font-size: 12px; fill: var(--human); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .swatch { width: 10px; height: 10px; display: inline-block; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--ink); }
+  .detail { border-left: 1px solid var(--ink); padding: 16px; position: sticky; top: 12px; }
+  .detail .actor { display: inline-block; font-size: 12px; letter-spacing: .08em; padding: 1px 6px; border: 1px solid var(--ink); margin-bottom: 8px; }
+  .detail .actor.human { background: var(--human-soft); }
+  .detail .actor.ai { background: var(--ai-soft); }
+  .detail .actor.stop { background: var(--stop-soft); }
+  .detail h2 { font-family: "Songti SC", "Noto Serif SC", Palatino, serif; font-size: 26px; margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .detail p { margin: 0 0 10px; }
+  .say { background: #efeae1; padding: 8px 10px; margin: 0; }
+  .pos { color: var(--muted); font-size: 12px; margin-top: 12px; }
+  .block { margin-top: 28px; }
+  .block h2 { font-size: 28px; margin-bottom: 8px; }
+  .intro { color: var(--muted); margin-top: 0; }
+  .sheet { grid-template-columns: 1fr 1fr 1fr; }
+  .sheet section { padding: 14px 16px 8px; }
+  .sheet h2 { font-size: 18px; }
+  .sheet ol, .forbid ul, .gates { margin: 0; padding-left: 1.2em; }
+  .sheet li, .forbid li { margin: 0 0 8px; }
+  .gates { grid-template-columns: repeat(4, 1fr); list-style: none; padding: 0; margin-top: 12px; }
+  .gate { padding: 12px; }
+  .gate strong { display: block; margin-bottom: 4px; }
+  .dirs { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+  .dir { padding: 12px; border-top: 6px solid var(--inbox); }
+  .dir.doing { border-top-color: var(--doing); }
+  .dir.review { border-top-color: var(--review); }
+  .dir.done { border-top-color: var(--done); }
+  .dir h3 { margin: 0 0 4px; font-size: 16px; }
+  .forbid { margin-top: 12px; padding: 14px 16px; }
+  .forbid ul { columns: 2; padding-left: 1.2em; }
+  footer { margin-top: 22px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 980px) {
+    .modes, .sheet, .gates, .dirs { grid-template-columns: 1fr; }
+    .stage { grid-template-columns: 1fr; }
+    .detail { position: static; border-left: 0; border-top: 1px solid var(--ink); }
+    .forbid ul { columns: 1; }
+    h1 { font-size: 32px; }
+    header.top { flex-direction: column; align-items: flex-start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rail, .edge.live { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+  @media print {
+    body { background: white; }
+    .controls, .lamp { display: none !important; }
+    .stage, .card, .sheet, .gate, .dir, .forbid { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="plate">AI-WORKFLOW · 图解</p>
+      <h1>任务怎么流转</h1>
+      <p class="lead">人写任务。AI 先只读；有歧义就停下来等你批准。改代码、送审之后，审查和合并仍由你做。AI 不合并、不 push、不删除 worktree。</p>
+    </div>
+    <a class="rule-link" href="README.md">执行规则以 README.md 为准</a>
+  </header>
+
+  <div class="modes">
+    <article class="card">
+      <p class="k">01 · 初始化</p>
+      <h2>摆好任务池</h2>
+      <p>在目标仓库的会话里说一次。只生成 <code>.ai-workflow/</code>，不改项目其他文件。</p>
+      <code>/ai-workflow init</code>
+    </article>
+    <article class="card">
+      <p class="k">02 · 整理任务</p>
+      <h2>先出草稿</h2>
+      <p>手写，或让 AI 拆 <code>list/</code> 里的清单。你没明确要写入之前，不会进 inbox。</p>
+      <code>/ai-workflow task …</code>
+    </article>
+    <article class="card">
+      <p class="k">03 · 执行任务</p>
+      <h2>领取一条</h2>
+      <p>只领 inbox 里 <code>status: new</code> 的任务。讨论中和阻塞中的不能领。</p>
+      <code>/ai-workflow 处理 T-20260101-001</code>
+    </article>
+  </div>
+
+  <div class="stage">
+    <div class="board">
+      <div class="controls">
+        <button type="button" data-route="main" aria-pressed="true">主路径</button>
+        <button type="button" data-route="discuss" aria-pressed="false">遇歧义</button>
+        <button type="button" data-route="block" aria-pressed="false">阻塞</button>
+        <button type="button" id="play" class="primary">暂停</button>
+        <button type="button" id="prev">上一步</button>
+        <button type="button" id="next">下一步</button>
+        <span class="hint" id="pos">1 / 7</span>
+      </div>
+      <div class="scroll">
+        <svg viewBox="0 0 1220 470" role="img" aria-labelledby="boardTitle boardDesc">
+          <title id="boardTitle">任务从 inbox 到 done 的流转</title>
+          <desc id="boardDesc">主路径从手写任务到合并归档。有歧义时从只读探索折回讨论和批准，再恢复实施。阻塞后回到 inbox。</desc>
+          <path class="rail" d="M 98 86 H 1106" />
+          <path class="edge" data-from="new" data-to="claim" d="M 172 86 H 192" marker-end="url(#arr)" />
+          <path class="edge" data-from="claim" data-to="explore" d="M 340 86 H 360" marker-end="url(#arr)" />
+          <path class="edge" data-from="explore" data-to="build" d="M 508 86 H 528" marker-end="url(#arr)" />
+          <path class="edge" data-from="build" data-to="send" d="M 676 86 H 696" marker-end="url(#arr)" />
+          <path class="edge" data-from="send" data-to="approved" d="M 844 86 H 864" marker-end="url(#arr)" />
+          <path class="edge" data-from="approved" data-to="done" d="M 1012 86 H 1032" marker-end="url(#arr)" />
+          <path class="edge branch" data-from="explore" data-to="discuss" d="M 434 140 V 196" marker-end="url(#arr-h)" />
+          <path class="edge branch" data-from="discuss" data-to="approve" d="M 512 250 H 524" marker-end="url(#arr-h)" />
+          <path class="edge branch" data-from="approve" data-to="build" d="M 602 196 V 140" marker-end="url(#arr-h)" />
+          <text class="edge-label" x="446" y="176">有歧义</text>
+          <text class="edge-label" x="614" y="176">批准后恢复</text>
+
+          <g class="node tone-human" data-step="new" tabindex="0" role="button">
+            <rect class="cardbox" x="24" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-inbox" x="24" y="36" width="6" height="100" />
+            <text class="who" x="40" y="60">人</text>
+            <text class="name" x="40" y="84">手写任务</text>
+            <text class="dir" x="40" y="112">inbox</text>
+          </g>
+          <g class="node tone-ai" data-step="claim" tabindex="0" role="button">
+            <rect class="cardbox" x="192" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-doing" x="192" y="36" width="6" height="100" />
+            <text class="who" x="208" y="60">AI</text>
+            <text class="name" x="208" y="84">领取加锁</text>
+            <text class="dir" x="208" y="112">doing</text>
+          </g>
+          <g class="node tone-ai" data-step="explore" tabindex="0" role="button">
+            <rect class="cardbox" x="360" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-doing" x="360" y="36" width="6" height="100" />
+            <text class="who" x="376" y="60">AI</text>
+            <text class="name" x="376" y="84">只读探索</text>
+            <text class="dir" x="376" y="112">doing</text>
+          </g>
+          <g class="node tone-ai" data-step="build" tabindex="0" role="button">
+            <rect class="cardbox" x="528" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-doing" x="528" y="36" width="6" height="100" />
+            <text class="who" x="544" y="60">AI</text>
+            <text class="name" x="544" y="84">实施验证</text>
+            <text class="dir" x="544" y="112">doing</text>
+          </g>
+          <g class="node tone-ai" data-step="send" tabindex="0" role="button">
+            <rect class="cardbox" x="696" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-review" x="696" y="36" width="6" height="100" />
+            <text class="who" x="712" y="60">AI</text>
+            <text class="name" x="712" y="84">送审</text>
+            <text class="dir" x="712" y="112">review</text>
+          </g>
+          <g class="node tone-human" data-step="approved" tabindex="0" role="button">
+            <rect class="cardbox" x="864" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-review" x="864" y="36" width="6" height="100" />
+            <text class="who" x="880" y="60">人</text>
+            <text class="name" x="880" y="84">审查通过</text>
+            <text class="dir" x="880" y="112">review</text>
+          </g>
+          <g class="node tone-human" data-step="done" tabindex="0" role="button">
+            <rect class="cardbox" x="1032" y="36" width="148" height="100" rx="4" />
+            <rect class="tick tick-done" x="1032" y="36" width="6" height="100" />
+            <text class="who" x="1048" y="60">人</text>
+            <text class="name" x="1048" y="84">合并归档</text>
+            <text class="dir" x="1048" y="112">done</text>
+          </g>
+          <g class="node tone-ai" data-step="discuss" tabindex="0" role="button">
+            <rect class="cardbox" x="360" y="200" width="148" height="100" rx="4" />
+            <rect class="tick tick-inbox" x="360" y="200" width="6" height="100" />
+            <text class="who" x="376" y="224">AI</text>
+            <text class="name" x="376" y="248">先写讨论</text>
+            <text class="dir" x="376" y="276">inbox</text>
+          </g>
+          <g class="node tone-human" data-step="approve" tabindex="0" role="button">
+            <rect class="cardbox" x="528" y="200" width="148" height="100" rx="4" />
+            <rect class="tick tick-inbox" x="528" y="200" width="6" height="100" />
+            <text class="who" x="544" y="224">人</text>
+            <text class="name" x="544" y="248">批准方案</text>
+            <text class="dir" x="544" y="276">inbox</text>
+          </g>
+          <g class="node tone-stop" data-step="blocked" tabindex="0" role="button">
+            <rect class="cardbox" x="24" y="348" width="1156" height="78" rx="4" />
+            <rect class="tick tick-stop" x="24" y="348" width="6" height="78" />
+            <text class="who" x="44" y="376">AI 停下 · 人处理 · inbox · blocked</text>
+            <text class="name" x="44" y="402">做不下去或审查被拒就停在这里。补充信息后把 status 改回 new，才能再领。</text>
+          </g>
+          <circle id="lamp" class="lamp" r="5" cx="156" cy="52" />
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 1.2 L 8 5 L 0 8.8 Z" fill="#1c1915" />
+            </marker>
+            <marker id="arr-h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 1.2 L 8 5 L 0 8.8 Z" fill="#9a3f22" />
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="swatch" style="background:#8a8175"></i>inbox 收件</span>
+        <span><i class="swatch" style="background:#145e56"></i>doing 进行</span>
+        <span><i class="swatch" style="background:#9a3f22"></i>review 审查</span>
+        <span><i class="swatch" style="background:#1c1915"></i>done 归档</span>
+        <span>色条是任务文件所在目录。审查通过后仍留在 review。</span>
+      </div>
+    </div>
+    <aside class="detail" aria-live="polite">
+      <div class="actor human" id="actor">人</div>
+      <h2 id="step-title">手写任务</h2>
+      <div class="meta" id="step-meta">inbox · status: new</div>
+      <p id="step-text">复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 默认只展示草稿，你确认后才写入 inbox，仍不领取。</p>
+      <p class="say mono" id="step-say">/ai-workflow task 分析 list/需求列表.md 并拆分任务</p>
+      <div class="pos" id="step-note">方向键可逐步查看。没有重要歧义时走主路径，不必做方案批准。</div>
+    </aside>
+  </div>
+
+  <div class="block">
+    <h2>你怎么操作</h2>
+    <p class="intro">下面按三条路径写。字段和命令的细节以 <a href="README.md">README.md</a> 为准，配置在 <a href="CONFIG.md">CONFIG.md</a>，任务格式在 <a href="TEMPLATE.md">TEMPLATE.md</a>。</p>
+    <div class="sheet">
+      <section>
+        <h2>主路径</h2>
+        <ol>
+          <li>复制 TEMPLATE.md 为 <code>inbox/T-20260101-001.md</code>。<code>id</code> 与文件名一致，<code>status: new</code>。验收标准写可执行的命令；没核实的写 TODO。</li>
+          <li>说 <code>/ai-workflow 处理 T-20260101-001</code>。AI 加锁、把文件移到 doing、准备分支 <code>ai/T-20260101-001</code> 的 worktree。</li>
+          <li>AI 只读探索，不改业务代码。没有重要歧义就直接实施。</li>
+          <li>AI 只在 worktree 里改代码，把命令、目录、退出码、结果写入「验证记录」。没跑就写「未运行」。<code>risk: high</code> 只出方案，不改代码，送审时不能有 commit。</li>
+          <li>工作区干净、验证记录非空后送审，文件进入 review。到这里停止，不合并。</li>
+          <li>你看 diff 和验证记录，明确说审查通过。文件仍留在 review。</li>
+          <li>人工合并由你执行。告诉 AI 目标分支、合并提交、方式和你的原话。核对通过后才进入 done。</li>
+        </ol>
+      </section>
+      <section>
+        <h2>遇歧义</h2>
+        <ol>
+          <li>业务口径、接口、数据、权限、兼容或范围说不清时，AI 不能靠默认假设开工。</li>
+          <li>AI 写「讨论」，把 status 改为 <code>needs-discussion</code>，文件移回 inbox，删除锁。worktree 和已有 diff 保留。</li>
+          <li>你补全「方案」。AI 计算方案正文的 sha256，写上 <code>plan_version</code>。</li>
+          <li>你明确说「批准版本 N」。只写方案，或 AI 说可行，都不是批准。</li>
+          <li>你要求恢复后，AI 重新计算 sha。版本、sha、批准人和原话一致，才回到 doing 继续做。</li>
+          <li>方案改过，或版本对不上，旧批准作废，不能恢复。</li>
+        </ol>
+      </section>
+      <section>
+        <h2>阻塞</h2>
+        <ol>
+          <li>做不下去，或你拒绝审查：status 改为 <code>blocked</code>，文件回到 inbox，删除锁，现场保留。</li>
+          <li>blocked 和 needs-discussion 都在 inbox，但不能当新任务领取。</li>
+          <li>你补充信息并确认可以重做后，把 status 改回 <code>new</code>，才能再次领取。</li>
+        </ol>
+      </section>
+    </div>
+
+    <ol class="gates">
+      <li class="gate"><strong>1. 任务由你写</strong><p><code>/ai-workflow task</code> 默认只给草稿。你确认后才写入 inbox，仍然不领取、不实现。</p></li>
+      <li class="gate"><strong>2. 批准要说出版本</strong><p>只有「批准版本 N」算数，而且只用于从讨论恢复。主路径没有歧义时不需要这一步。</p></li>
+      <li class="gate"><strong>3. 审查通过 ≠ 合并</strong><p>通过后 status 是 <code>review_approved</code>，人还没合并，文件留在 review。</p></li>
+      <li class="gate"><strong>4. 人工合并才归档</strong><p><code>merged_commit</code> 必须在目标分支上。squash / rebase 不能用 sha 证明内容相同，必须写明。</p></li>
+    </ol>
+  </div>
+
+  <div class="block">
+    <h2>文件停在哪</h2>
+    <div class="dirs">
+      <article class="dir">
+        <h3>inbox</h3>
+        <p><code>new</code> 可领取。<code>needs-discussion</code> 与 <code>blocked</code> 不可领取。<code>list/</code> 只放清单，没有状态。</p>
+      </article>
+      <article class="dir doing">
+        <h3>doing</h3>
+        <p><code>claimed</code>。同时有锁 <code>.locks/任务id/</code>，以及 worktree <code>.ai-worktrees/任务id/</code>。</p>
+      </article>
+      <article class="dir review">
+        <h3>review</h3>
+        <p><code>needs_review</code> 等人看。<code>review_approved</code> 是人已通过、尚未合并。两态都在这里。</p>
+      </article>
+      <article class="dir done">
+        <h3>done</h3>
+        <p><code>done</code>。有目标分支和合并提交证据。无代码任务在你确认后也可以归档。不删除分支和 worktree。</p>
+      </article>
+    </div>
+    <div class="forbid card">
+      <h2>不会自动发生</h2>
+      <ul>
+        <li>不合并、不 push、不建 PR、不改 CI、不发版。</li>
+        <li>不删除 worktree 或分支，不 reset 你的改动。</li>
+        <li>锁已存在就停。异常退出留下的锁，由人确认后删除。</li>
+        <li>不覆盖已有任务文件，不自动迁移旧 <code>.ai/</code>。</li>
+        <li>不把任务状态偷偷提交进业务分支。</li>
+        <li>验收标准不能自行放宽。没跑的检查写「未运行」。</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    本页是图解，随 <code>/ai-workflow init</code> 放到 <code>.ai-workflow/guide.html</code>。重复初始化会保留你改过的这一页。规则有冲突时以 README.md 为准。
+  </footer>
+</div>
+<script>
+(function () {
+  var steps = {
+    new: {
+      actor: "人", tone: "human", dir: "inbox", status: "new", title: "手写任务",
+      text: "复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 默认只展示草稿，你确认后才写入 inbox，仍不领取。",
+      say: "/ai-workflow task 分析 list/需求列表.md 并拆分任务"
+    },
+    claim: {
+      actor: "AI", tone: "ai", dir: "doing", status: "claimed", title: "领取加锁",
+      text: "只领 inbox 里 status 为 new 的任务。mkdir .locks/任务id 加锁，锁已在就停。文件移到 doing，写 claimed_by、claimed_at。worktree 在 .ai-worktrees/任务id/，分支 ai/任务id。基准顺序：任务 base_ref、CONFIG 的基准分支、当前 HEAD。已有同分支 worktree 就复用。",
+      say: "/ai-workflow 处理 T-20260101-001"
+    },
+    explore: {
+      actor: "AI", tone: "ai", dir: "doing", status: "claimed", title: "只读探索",
+      text: "读任务、项目规则、相关代码和验收标准。这一步不改业务代码。没有重要歧义就进入实施。业务口径、接口、数据、权限、兼容或范围不清楚，就转入讨论。",
+      say: "此阶段不改业务代码"
+    },
+    discuss: {
+      actor: "AI", tone: "ai", dir: "inbox", status: "needs-discussion", title: "先写讨论",
+      text: "在「讨论」里写已确认的事实、待决问题、可选方案、建议、当前改动和需要你做的事。然后 status 改为 needs-discussion，文件移回 inbox，删除锁。worktree、提交和 diff 都留着。这张任务不能再当新任务领。",
+      say: "status: needs-discussion"
+    },
+    approve: {
+      actor: "人", tone: "human", dir: "inbox", status: "needs-discussion", title: "批准方案",
+      text: "你补全「方案」。AI 用 README 里的命令计算方案正文 sha256，写入 plan_version 和 plan_sha256。只有你明确说「批准版本 N」，才写入 approved_version、approved_plan_sha256，以及你的原话。方案再改，旧批准失效。",
+      say: "批准版本 N"
+    },
+    build: {
+      actor: "AI", tone: "ai", dir: "doing", status: "claimed", title: "实施验证",
+      text: "从讨论回来时，要你明确要求恢复，并且版本、sha、批准人、原话全部一致，才重新加锁、回到 doing、复用原 worktree。然后只在 worktree 里改代码。验证记录写命令、目录、退出码和结果；没跑写「未运行」。risk 为 high 时只出方案，不产生 commit。",
+      say: "没跑就写「未运行」，不放宽验收标准"
+    },
+    send: {
+      actor: "AI", tone: "ai", dir: "review", status: "needs_review", title: "送审",
+      text: "worktree 不能有未提交改动。risk 为 low 时至少 1 个新 commit；high 时不允许有 commit。验证记录不能空。然后写 review_commit（无代码写 none），status 改为 needs_review，文件移到 review，删除锁。不合并、不 push、不删 worktree。",
+      say: "送到 review/ 后停止"
+    },
+    approved: {
+      actor: "人", tone: "human", dir: "review", status: "review_approved", title: "审查通过",
+      text: "你看 diff 和验证记录，明确说通过。AI 记录 review_approved_commit，它必须等于分支当前 HEAD，并记下你的结论。status 改为 review_approved，文件留在 review。之后代码再变，这次批准失效。通过还不等于合并。",
+      say: "你明确说审查通过即可，没有固定口令。文件仍留在 review。"
+    },
+    done: {
+      actor: "人", tone: "human", dir: "done", status: "done", title: "合并归档",
+      text: "合并由你执行。完成后说明目标分支、合并提交、方式（merge、squash 或 rebase）和你的原话。AI 核对 merged_commit 在目标分支上。merge 还要求被批准的 commit 是合并提交的祖先。squash / rebase 不能用 sha 证明内容相同，必须写明。核对通过才把 status 改为 done 并移入 done/。不删除 worktree 和分支。",
+      say: "示例：已合并到 main，合并提交是……，方式是 merge"
+    },
+    blocked: {
+      actor: "人处理", tone: "stop", dir: "inbox", status: "blocked", title: "阻塞或被拒",
+      text: "无法继续，或你拒绝审查：status 改为 blocked，文件回到 inbox，写明原因，删除锁，保留 worktree 和 diff。你补充信息并确认可以重做后，把 status 改回 new，才能重新领取。",
+      say: "改回 status: new 之后才能再领"
+    }
+  };
+
+  var routes = {
+    main: ["new", "claim", "explore", "build", "send", "approved", "done"],
+    discuss: ["new", "claim", "explore", "discuss", "approve", "build", "send", "approved", "done"],
+    block: ["new", "claim", "explore", "blocked"]
+  };
+
+  var route = "main";
+  var index = 0;
+  var timer = null;
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function $(id) { return document.getElementById(id); }
+
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    $("play").textContent = "播放";
+  }
+
+  function play() {
+    stop();
+    $("play").textContent = "暂停";
+    timer = setInterval(function () {
+      if (index >= routes[route].length - 1) { stop(); return; }
+      index += 1;
+      render();
+    }, 1700);
+  }
+
+  function render() {
+    var id = routes[route][index];
+    var step = steps[id];
+    var prev = index > 0 ? routes[route][index - 1] : null;
+    document.querySelectorAll(".node").forEach(function (el) {
+      var on = el.getAttribute("data-step") === id;
+      el.classList.toggle("active", on);
+      if (on) el.setAttribute("aria-current", "step");
+      else el.removeAttribute("aria-current");
+    });
+    document.querySelectorAll(".edge").forEach(function (el) {
+      var on = prev && el.getAttribute("data-from") === prev && el.getAttribute("data-to") === id;
+      el.classList.toggle("live", !!on);
+      el.classList.remove("ai", "human", "stop");
+      if (on) el.classList.add(step.tone === "human" ? "human" : step.tone === "stop" ? "stop" : "ai");
+    });
+    var node = document.querySelector('.node[data-step="' + id + '"]');
+    var box = node.getBBox();
+    var lamp = $("lamp");
+    lamp.setAttribute("cx", box.x + box.width - 16);
+    lamp.setAttribute("cy", box.y + 18);
+    lamp.className.baseVal = "lamp on" + (step.tone === "human" ? " human" : step.tone === "stop" ? " stop" : "");
+    $("actor").textContent = step.actor;
+    $("actor").className = "actor " + step.tone;
+    $("step-title").textContent = step.title;
+    $("step-meta").textContent = step.dir + " · status: " + step.status;
+    $("step-text").textContent = step.text;
+    $("step-say").textContent = step.say;
+    $("pos").textContent = (index + 1) + " / " + routes[route].length;
+  }
+
+  function setRoute(name, auto) {
+    route = name;
+    index = 0;
+    document.querySelectorAll("[data-route]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-route") === name ? "true" : "false");
+    });
+    render();
+    if (auto && !reduce) play();
+    else stop();
+  }
+
+  function jumpTo(id) {
+    var nextRoute = route;
+    if (routes[route].indexOf(id) === -1) {
+      if (id === "discuss" || id === "approve") nextRoute = "discuss";
+      else if (id === "blocked") nextRoute = "block";
+      else nextRoute = "main";
+    }
+    if (nextRoute !== route) {
+      route = nextRoute;
+      document.querySelectorAll("[data-route]").forEach(function (btn) {
+        btn.setAttribute("aria-pressed", btn.getAttribute("data-route") === route ? "true" : "false");
+      });
+    }
+    index = Math.max(0, routes[route].indexOf(id));
+    stop();
+    render();
+  }
+
+  document.querySelectorAll("[data-route]").forEach(function (btn) {
+    btn.addEventListener("click", function () { setRoute(btn.getAttribute("data-route"), true); });
+  });
+  document.querySelectorAll(".node").forEach(function (el) {
+    el.addEventListener("click", function () { jumpTo(el.getAttribute("data-step")); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpTo(el.getAttribute("data-step")); }
+    });
+  });
+  $("play").addEventListener("click", function () { if (timer) stop(); else play(); });
+  $("prev").addEventListener("click", function () { stop(); if (index > 0) index -= 1; render(); });
+  $("next").addEventListener("click", function () {
+    stop();
+    if (index < routes[route].length - 1) index += 1;
+    render();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+    if (e.key === "ArrowRight") { $("next").click(); }
+    if (e.key === "ArrowLeft") { $("prev").click(); }
+  });
+
+  render();
+  if (reduce) stop();
+  else play();
+})();
+</script>
+</body>
+</html>

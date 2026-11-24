@@ -13,6 +13,7 @@
 ├── README.md      # 说明 + 状态表 + AI 执行流程
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
+├── guide.html     # 流转图解；执行规则以 README 为准
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
@@ -28,7 +29,7 @@
 幂等：
 
 - README 已存在且首行有 `ai-workflow:v3` 标记 → 视为用户文件，保留，只补缺失目录；
-- 已存在的 TEMPLATE.md / CONFIG.md 保留，不覆盖；
+- 已存在的 TEMPLATE.md / CONFIG.md / guide.html 保留，不覆盖；缺失的 guide.html 会补上；
 - 未标记的 README、旧 `.initialized` / v1 / v2 结构 → 停止并提示人工迁移，不自动升级；
 - 旧 `.ai/`、`scripts/ai-loop.sh` 只警告，不读取、不修改。
 
@@ -75,7 +76,7 @@ AI 不使用额外的状态工具；一致性靠 README 规则与人工检查。
 
 ## 5. worktree
 
-- 位置：`.ai-workflow/worktrees/<id>/`；分支 `ai/<id>`。
+- 位置：`.ai-worktrees/<id>/`（与 `.ai-workflow/` 平级）；分支 `ai/<id>`。
 - 基准优先级：任务 `base_ref` → `CONFIG.md` 的基准分支 → 领取时主 checkout 当前 HEAD。
 - 已有同分支 worktree → 复用；目录存在但不是该分支 worktree → 停止报告，不删除、不嵌套。
 - 主 checkout 当前在 `ai/<id>` 分支 → 拒绝领取。
@@ -93,11 +94,13 @@ AI 不使用额外的状态工具；一致性靠 README 规则与人工检查。
 
 ## 7. 验证状态
 
-**已验证**（`bash scripts/test-ai-workflow.sh`，临时仓库，54 项全过）：
-初始化只生成 README/TEMPLATE/CONFIG + 五目录；不生成 scripts/docs/config.env/.gitignore；
-不修改 AGENTS/CLAUDE/docs/根 .gitignore；幂等并保留用户 README/TEMPLATE/CONFIG；
-CONFIG 预填当前分支；未标记 README 冲突不写入；旧 v1 结构不自动升级；旧 `.ai/` 只警告；
-verify 能发现结构缺失；单一技能入口；assets 为 README/TEMPLATE/CONFIG。
+**已验证**（`bash scripts/test-ai-workflow.sh`，临时仓库，83 项全过）：
+初始化只生成 README/TEMPLATE/CONFIG/guide.html + 五目录；不生成 scripts/docs/config.env/.gitignore；
+不修改 AGENTS/CLAUDE/docs/根 .gitignore；幂等并保留用户 README/TEMPLATE/CONFIG/guide.html；
+缺失的 guide.html 会补上且不改已有 README；CONFIG 预填当前分支；未标记 README 冲突不写入；
+旧 v1 结构不自动升级；旧 `.ai/` 只警告；verify 能发现结构缺失（含缺 guide.html）；
+单一技能入口；assets 为 README/TEMPLATE/CONFIG/guide.html；
+check.sh 运行时一致性检查、status.sh 任务总览统计与 archive.sh 归档清理均通过回归测试。
 
 **未验证 / 限制**：
 

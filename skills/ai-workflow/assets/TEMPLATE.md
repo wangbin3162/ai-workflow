@@ -1,16 +1,18 @@
 ---
+# ===== 用户填写 =====
 id: T-YYYYMMDD-001
-type: feature
 title: 一句话说明要做什么
+type: feature
 status: new
+risk: low
 priority: P1
 created: YYYY-MM-DD
 base_ref:
+# ===== 以下由 AI 自动填写，无需手动编辑 =====
 claimed_by:
 claimed_at:
 worktree:
 base_commit:
-risk: low
 plan_version: 0
 plan_sha256:
 approved_version:

@@ -3,7 +3,7 @@
 用**用户手写**的任务驱动 AI 编码会话：AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 →
 人工审查 → 人工合并 → 归档。技术栈：bash + markdown，无第三方依赖。
 
-对外只有一个技能入口：`skills/ai-workflow`（`/ai-workflow init|task|<提示词>`）。
+对外只有一个技能入口：`skills/ai-workflow`（`/ai-workflow init|task|<提示词>|archive`）。
 
 ## 改代码之前
 
@@ -17,14 +17,15 @@
 
 ```text
 ├── AGENTS.md / LESSONS.md / CLAUDE.md
-├── .claude/loop.md              # 交互会话薄入口
-├── .ai-workflow/                # 示例任务池（README + TEMPLATE + CONFIG + inbox/doing/review/done/list）
+├── .claude/commands.md           # 会话命令入口
+├── .ai-workflow/                # 示例任务池（README + TEMPLATE + CONFIG + guide.html + inbox/doing/review/done/list）
 ├── skills/ai-workflow/          # 唯一技能入口
 │   ├── SKILL.md
 │   ├── assets/README.md         # 目标 .ai-workflow/ 的说明
 │   ├── assets/TEMPLATE.md       # 目标 .ai-workflow/ 的任务模板
 │   ├── assets/CONFIG.md         # 目标 .ai-workflow/ 的项目配置模板
-│   ├── scripts/                 # detect / install / verify（不随初始化分发）
+│   ├── assets/guide.html        # 目标 .ai-workflow/ 的流转图解
+│   ├── scripts/                 # detect / install / verify / check / status / archive（不随初始化分发）
 │   ├── references/
 │   └── evals/evals.json
 ├── scripts/test-ai-workflow.sh  # 初始化/结构回归测试
@@ -42,8 +43,8 @@
 ## 硬性规矩
 
 - **单一入口**：对外只提供 `ai-workflow` 技能。
-- **初始化只写 `.ai-workflow/`**：只生成 README、TEMPLATE、CONFIG 和五个目录；不碰 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
-- **不生成脚本/额外文档**：项目配置独立在 `CONFIG.md`；任务流转由 AI 按 README 直接操作。
+- **初始化只写 `.ai-workflow/`**：生成 README、TEMPLATE、CONFIG、guide.html 和五个目录；不碰 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+- **不生成脚本**：项目配置在 `CONFIG.md`；`guide.html` 只是流转图解，执行规则以 README 为准。
 - **任务由人手写**：`/ai-workflow task` 只出草稿，用户明确要求才写文件。
 - **歧义先讨论**：`needs-discussion` 不得被当作新任务领取；恢复需要用户明确批准当前方案版本与 sha。
 - **审查通过 ≠ 合并**：`done` 必须有目标分支与合并提交证据。
@@ -69,3 +70,4 @@
 | [`skills/ai-workflow/assets/README.md`](skills/ai-workflow/assets/README.md) | 初始化到目标项目的执行规则 |
 | [`skills/ai-workflow/assets/TEMPLATE.md`](skills/ai-workflow/assets/TEMPLATE.md) | 初始化到目标项目的任务模板 |
 | [`skills/ai-workflow/assets/CONFIG.md`](skills/ai-workflow/assets/CONFIG.md) | 初始化到目标项目的项目配置模板 |
+| [`skills/ai-workflow/assets/guide.html`](skills/ai-workflow/assets/guide.html) | 初始化到目标项目的流转图解 |

@@ -1,23 +1,24 @@
 ---
 name: ai-workflow
-description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow 加提示词领取任务，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「按任务池做一个任务」「用 worktree 让 agent 跑任务」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
+description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG、guide.html 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，guide.html 只是流转图解，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow 加提示词领取任务，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并；用 /ai-workflow archive 批量归档已完成任务并清理 worktree/分支。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「按任务池做一个任务」「用 worktree 让 agent 跑任务」「归档清理」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
 ---
 
 # ai-workflow — 单一技能入口
 
-三个模式：
+四个模式：
 
 | 用户说的 | 模式 | 做什么 |
 | --- | --- | --- |
-| `/ai-workflow init`、「初始化 AI 工作流 / 任务池」 | **初始化** | 只写目标项目 `.ai-workflow/README.md` + `TEMPLATE.md` + `CONFIG.md` + 五个任务目录 |
+| `/ai-workflow init`、「初始化 AI 工作流 / 任务池」 | **初始化** | 只写目标项目 `.ai-workflow/README.md` + `TEMPLATE.md` + `CONFIG.md` + `guide.html` + 五个任务目录 |
 | `/ai-workflow task`、「新增任务 / 拆分任务」 | **整理任务** | 按 README 模板帮用户写任务草稿；不自动创建、不实现 |
 | `/ai-workflow <提示词>`、「领取任务 / 按任务池做」 | **执行任务** | 领取 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
+| `/ai-workflow archive`、「归档清理 / 清理已完成任务」 | **归档清理** | 整理 `done/` 里的已完成任务和对应 worktree/分支 |
 
 旧入口 `ai-loop-init` / `ai-loop-task` 不再提供；旧 `.ai/` 与旧脚本不会被调用，也不自动迁移。
 
 **初始化后的任务流转由 AI 直接操作文件和 git，没有随初始化分发的脚本。**
 目标项目内的工作流说明是 `.ai-workflow/README.md`，项目配置在 `.ai-workflow/CONFIG.md`，
-执行时以它们为准。
+流转图解是 `.ai-workflow/guide.html`。执行时以 README 和 CONFIG 为准。
 
 ---
 
@@ -48,6 +49,7 @@ bash <skill-dir>/scripts/install.sh --target <目标>          # 默认 --plan
 ├── README.md
 ├── TEMPLATE.md
 ├── CONFIG.md
+├── guide.html
 ├── inbox/
 ├── doing/
 ├── review/
@@ -58,7 +60,7 @@ bash <skill-dir>/scripts/install.sh --target <目标>          # 默认 --plan
 - 不生成 `.gitignore`、`config.env`、`scripts/`、`docs/`、`templates/`、`.initialized`。
 - `CONFIG.md` 独立放项目配置；`init` 预填当前分支，测试命令留 TODO 等初始化会话核实。
 - `list/` 用于临时任务列表/方案草稿，供 `/ai-workflow task` 分析拆分。
-- 已存在且带 `ai-workflow:v3` 标记的 README、已存在的 TEMPLATE / CONFIG 视为用户文件：保留，不覆盖。
+- 已存在且带 `ai-workflow:v3` 标记的 README、已存在的 TEMPLATE / CONFIG / guide.html 视为用户文件：保留，不覆盖。缺失的 guide.html 会补上。
 - 未标记的 README、旧版 `.initialized` / v1 / v2 结构：停止并提示人工处理，不自动升级。
 - 只提示旧 `.ai/`、`scripts/ai-loop.sh`，不读取、不修改。
 
@@ -126,9 +128,8 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 只选 `inbox/` 中 `status: new` 的任务；`needs-discussion` / `blocked` 不得领取。
 - `mkdir .ai-workflow/.locks/<id>` 做任务锁；已存在就停，确认无人使用后由人删除。
 - 任务移到 `doing/`，改 `status: claimed`，写 `claimed_by`、`claimed_at`。
-- 准备 worktree：基准 = 任务 `base_ref` → `CONFIG.md` 的基准分支 → 主 checkout 当前 HEAD。
+- 准备 worktree（位置 `.ai-worktrees/<id>/`）：基准 = 任务 `base_ref` → `CONFIG.md` 的基准分支 → 主 checkout 当前 HEAD。
 - 已有同分支 worktree 就复用；目录存在但不是该分支 worktree 就停止报告；不嵌套创建。
-- 主 checkout 当前在 `ai/<id>` 分支时拒绝领取。
 - 记录 `worktree`、`base_commit`。
 
 ### 2. 只读探索（此阶段不改业务代码）
@@ -196,6 +197,41 @@ bash <skill-dir>/scripts/verify.sh <目标>
 
 ---
 
+## 模式四：归档清理（`/ai-workflow archive`）
+
+整理已完成的任务：移动任务文件到归档目录，清理对应 worktree 和分支。
+
+### 前提
+
+- 目标项目已初始化。
+- 只处理 `done/` 目录中 `status: done` 且有完整合并证据（`merged_commit` 非空）的任务。
+
+### 流程
+
+1. 扫描 `done/` 目录，列出所有满足归档条件的任务：
+   - `status: done`
+   - `merged_commit` 非空
+   - `merge_target` 非空
+
+2. 展示归档清单（任务 id、标题、合并时间、目标分支），**默认只展示，不执行**。
+
+3. 用户确认后，对每个任务执行：
+   a. 移动任务文件到 `.ai-workflow/archive/`（自动创建）；
+   b. 如果对应 worktree 存在（`.ai-worktrees/<id>/`），执行 `git worktree remove`；
+   c. 如果对应分支存在（`ai/<id>`），且已被合并到 `merge_target`，执行 `git branch -d`；
+   d. 如果锁残留（`.ai-workflow/.locks/<id>/`），删除。
+
+4. 汇报：归档了几个任务，清理了几个 worktree/分支，跳过了哪些（条件不满足或分支未合并）。
+
+### 安全规则
+
+- **不删除未合并的分支**：分支未合并到目标分支时跳过并报告，不用 `-D` 强删。
+- **不处理非 done 状态的任务**：即使用户要求也不清理进行中的任务。
+- **归档目录是 `.ai-workflow/archive/`**：不移到项目其他位置。
+- **不 push、不改远程**。
+
+---
+
 ## 硬性禁止
 
 - 不自动合并、不 push、不建 PR、不改 CI、不发版。
@@ -208,11 +244,12 @@ bash <skill-dir>/scripts/verify.sh <目标>
 ## 文件
 
 - `scripts/detect.sh` — 只读侦察
-- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE、CONFIG + 五目录）
+- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE、CONFIG、guide.html + 五目录）
 - `scripts/verify.sh` — 结构验证
 - `assets/README.md` — 目标 `.ai-workflow/` 的说明与执行规则
 - `assets/TEMPLATE.md` — 目标 `.ai-workflow/` 的任务模板
 - `assets/CONFIG.md` — 目标 `.ai-workflow/` 的项目配置模板（init 预填当前分支）
+- `assets/guide.html` — 目标 `.ai-workflow/` 的流转图解（执行规则仍以 README 为准）
 - `references/design.md` — 设计原因与边界
 - `references/legacy-ai-loop-task.md` — 旧任务整理入口归档（不是技能入口）
 - `evals/evals.json` — 测试用例

@@ -5,7 +5,7 @@
 人工审查 → 人工合并 → 归档。**AI 不合并、不 push、不删除 worktree。**
 
 任务状态靠任务文件的 front-matter 和所在目录表达。状态操作由 AI 按本文直接执行，
-没有随初始化分发的脚本。
+没有随初始化分发的脚本。流转图解见 [guide.html](guide.html)，怎么执行以本文为准。
 
 ## 1. 目录与状态
 
@@ -14,6 +14,7 @@
 ├── README.md      # 本文件
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
+├── guide.html     # 流转图解；执行规则以本文件为准
 ├── inbox/         # new / needs-discussion / blocked
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
@@ -57,6 +58,7 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 规则：
 
 - `id` 必须与文件名一致，分支固定为 `ai/<id>`。
+- 模板分两部分：前半部分由用户填写（`id`、`title`、`type`、`status`、`risk`、`priority`、`created`、`base_ref`），后半部分由 AI 自动维护，无需手动编辑。
 - `risk`：`low` / `high`；缺失或写错按 `high`。`high` 只出方案，不改代码。
 - front-matter 只写 `key: value`，不要写行内注释，值里不要出现 ` #`。
 
@@ -177,6 +179,7 @@ approved_note: <用户批准原话>
 无代码任务（`risk: high` 只出方案）确认后可直接 `status: done` 并移入 `done/`。
 
 归档后 **不删除** worktree 或分支，由人决定何时清理。
+可使用 `/ai-workflow archive` 批量整理 `done/` 里的任务。
 
 ### 4.9 阻塞与拒绝
 
@@ -186,7 +189,7 @@ approved_note: <用户批准原话>
 
 ## 5. worktree
 
-- 位置：`.ai-workflow/worktrees/<id>/`；分支 `ai/<id>`。
+- 位置：`.ai-worktrees/<id>/`（与 `.ai-workflow/` 平级）；分支 `ai/<id>`。
 - 基准优先级：任务 `base_ref` → CONFIG.md 的基准分支 → 领取时主 checkout 当前 HEAD。
 - 先看是否已有同分支 worktree（`git worktree list --porcelain`）；有就复用，不嵌套创建。
 - 目录存在但不是该分支 worktree → 停止并报告，不删除、不覆盖。
@@ -211,3 +214,16 @@ approved_note: <用户批准原话>
 - 不自动迁移旧 `.ai/` 任务，不改写旧状态。
 - 没有用户明确批准，不恢复 discussion 任务；没有合并证据，不 done。
 - 初始化不会修改项目的 `AGENTS.md`、`CLAUDE.md`、`docs/` 或 `.gitignore`。
+
+## 8. 归档清理
+
+已完成的任务和对应 worktree/分支可用 `/ai-workflow archive`（或「归档清理」）批量整理：
+
+1. 扫描 `done/` 目录，筛选 `status: done` 且 `merged_commit` 非空的任务；
+2. 默认只展示归档清单（任务 id、合并提交、目标分支），不直接操作；
+3. 用户确认后：
+   - 将任务文件移入 `.ai-workflow/archive/`；
+   - 移除对应 worktree（`.ai-worktrees/<id>/`）；
+   - 安全删除已合并的分支 `ai/<id>`（`git branch -d`，未合并的不强删）；
+   - 清理残留锁 `.ai-workflow/.locks/<id>/`。
+4. 不 push、不改远程、不处理非 done 状态的任务。
