@@ -1,205 +1,105 @@
 # 架构说明
 
-本仓库提供 `ai-workflow`：**用户手写任务 + 独立 worktree + 人工审查合并**的最小骨架。
-核心约束：AI 只产出结果；**讨论、批准、审查、合并、归档都必须有人的明确动作**。
+`ai-workflow` 用**用户手写任务 + 独立 worktree + 人工审查合并**驱动 AI 编码会话。
+核心约束：**讨论、批准、审查、合并、归档都必须有人的明确动作。**
 
-对外只有一个技能入口：`skills/ai-workflow`（`/ai-workflow init|task|<提示词>`）。
-旧入口 `ai-loop-init` / `ai-loop-task` 已取消，内容归档在 `archive/` 与
-`skills/ai-workflow/references/legacy-ai-loop-task.md`，不再被技能发现。
+对外只有一个技能入口：`skills/ai-workflow`。初始化不生成脚本；任务流转由 AI 按
+目标项目里的 `.ai-workflow/README.md` 直接操作任务文件和 git。
 
-## 1. 目标与边界
-
-做：
-
-- 在目标项目安全、幂等地初始化 `.ai-workflow/`；
-- 让手动 Claude/T3 会话按任务池执行一个用户手写任务；
-- 可选保留 `claude -p` 单任务脚本；
-- 用状态机区分：实现完成、验证记录、审查通过、人工合并、归档；
-- 发现歧义时先讨论，不默认实现。
-
-不做：
-
-- 多项目平台、多角色自动调度、复杂代理框架；
-- 自动创建任务、自动恢复讨论任务、自动合并、push、删除 worktree；
-- 修改目标项目 `AGENTS.md` / `CLAUDE.md` / `docs/` / 根 `.gitignore`；
-- 迁移旧 `.ai/` 任务或改写用户旧状态。
-
-## 2. 生成到目标项目的结构
-
-初始化只写目标项目 `.ai-workflow/`：
+## 1. 初始化结构
 
 ```text
 .ai-workflow/
-├── README.md                     # 最短流程
-├── WORKFLOW.md                   # 完整执行说明
-├── config.env                    # BASE_REF / PROJECT_TOOLS / WORKTREE_SETUP / REVIEW_LIMIT
-├── .gitignore                    # worktrees/ locks/ logs/ 等运行时产物
-├── .initialized                  # ai-workflow:v1
-├── templates/task.md             # 用户手写任务模板
-├── inbox/                        # status: new / example
-├── discussion/                   # needs-discussion
-├── doing/                        # claimed
-├── review/                       # needs_review
-├── approved/                     # review_approved（尚未合并）
-├── done/                         # done（有合并证据）
-├── blocked/                      # blocked
-└── scripts/
-    ├── ai-workflow.sh
-    └── test-ai-workflow.sh
+├── README.md      # 说明 + 状态表 + AI 执行流程
+├── TEMPLATE.md    # 任务模板
+├── inbox/         # new / needs-discussion / blocked
+├── doing/         # claimed
+├── review/        # needs_review / review_approved
+├── done/          # done
+└── list/          # 临时任务列表/方案草稿，供 AI 拆分任务
 ```
 
-目标项目的规则文件原样保留，工作流不读取、不改写、不搬动。
+不生成 `.gitignore`、`config.env`、`scripts/`、`docs/`、`templates/`、`.initialized`。
+初始化只写 `.ai-workflow/`，不改目标项目 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
 
-初始化行为：
+幂等：
 
-- 目标必须是有至少一个提交的 git 仓库（worktree 依赖）；
-- `--plan` 默认不改文件；`--apply` 只补缺失文件，内容相同则跳过；
-- 同名文件内容不同 → 列冲突、退出码 1、**整次不写入**；
-- 旧版 `.ai/`、`scripts/ai-loop.sh` 只警告，不读取、不迁移；
-- 不执行 `git add/commit/push`。
+- README 已存在且首行有 `ai-workflow:v3` 标记 → 视为用户文件，保留，只补缺失目录；
+- 已存在的 TEMPLATE.md 保留，不覆盖；
+- 未标记的 README、旧 `.initialized` / v1 / v2 结构 → 停止并提示人工迁移，不自动升级；
+- 旧 `.ai/`、`scripts/ai-loop.sh` 只警告，不读取、不修改。
 
-## 3. 任务状态
+## 2. 状态与目录
 
-目录即状态；`ai-workflow.sh check` 校验。
+| status | 目录 | 含义 | 可领取 |
+| --- | --- | --- | --- |
+| `new` | inbox | 新任务 | 是 |
+| `needs-discussion` | inbox | 有重要歧义，等用户补方案并批准 | 否 |
+| `blocked` | inbox | 失败/拒绝/中断，需人工 | 否 |
+| `claimed` | doing | 已认领，有活跃写者 | 否 |
+| `needs_review` | review | 实现完成 + 验证记录已写 | 否 |
+| `review_approved` | review | 人工审查通过，**尚未合并** | 否 |
+| `done` | done | 人工确认合并并归档 | 否 |
 
-```mermaid
-stateDiagram-v2
-    [*] --> new: 用户手写 inbox/
-    new --> claimed: claim（mkdir 锁）
-    claimed --> needs-discussion: pause（有歧义，保留 worktree/diff）
-    needs-discussion --> claimed: 用户批准方案版本 + resume
-    claimed --> review: review（实现完成 + 验证记录）
-    review --> approved: approve-review（人工审查通过）
-    approved --> done: done（人工确认 + 合并证据）
-    review --> blocked: reject
-    approved --> blocked: reject
-    claimed --> blocked: block / 失败达上限 / 中断
-    claimed --> new: 失败未达上限
-    blocked --> new: 人工处理后可重新入池
-```
+只有 `inbox/` 里 `status: new` 可领取；AI 必须按 status 过滤，不能把 discussion/blocked 当新任务。
 
-| 状态 | 目录 | 含义 |
-| --- | --- | --- |
-| `new` | `inbox/` | 可领取 |
-| `needs-discussion` | `discussion/` | 有重要歧义，等用户补方案并批准；**不自动领取** |
-| `claimed` | `doing/` | 已认领，有活跃写者 |
-| `needs_review` | `review/` | 实现完成、验证记录已写，等人审 |
-| `review_approved` | `approved/` | 人工审查通过，**尚未合并** |
-| `done` | `done/` | 已确认合并并归档 |
-| `blocked` | `blocked/` | 失败/拒绝/中断，需人工 |
-| `example` | `inbox/` | 示例，不领取 |
+## 3. AI 执行方式
 
-## 4. 讨论与批准模型
+没有随初始化分发的脚本。`list/` 只是输入区：用户放任务列表/方案草稿，
+`/ai-workflow task` 读取后按 TEMPLATE 拆分，默认只出草稿，用户确认后才写 inbox。
 
-### 4.1 needs-discussion
+AI 按 README 直接执行：
 
-领取后先只读探索；发现业务口径、接口行为、数据模型、权限、兼容性、范围等重要歧义时：
+1. 领取：`mkdir .ai-workflow/.locks/<id>`；任务移到 `doing/`，改 status/claimed_by/at；
+2. 只读探索；有歧义 → 写「## 讨论」→ status `needs-discussion`、移回 inbox、删除锁、
+   保留 worktree/commit/diff；
+3. 方案批准：计算「## 方案」正文 sha256，记录 `plan_version` / `plan_sha256`；
+   用户明确批准后才写 `approved_*`；恢复时重新计算并比对；
+4. 实施验证 → `review_commit` / status `needs_review`、移到 review、删除锁；
+5. 人工审查 → `review_approved_commit` / status `review_approved`，留在 review；
+6. 人工合并 → 记录 `merge_target` / `merged_commit` / `merge_method` / 人工确认；
+   status `done`、移到 done；
+7. 阻塞/拒绝 → status `blocked`、移回 inbox、删除锁、保留 worktree。
 
-1. 在任务「## 讨论」写：已确认事实（附证据）、待决问题、可选方案与影响、建议方案（标为建议）、
-   当前代码改动（有/无，已提交与未提交数）、用户下一步。
-2. `pause <id> --reason ...`：记录 worktree、分支、commit 数、未提交改动、改动文件与 diffstat，
-   移到 `discussion/`，释放锁，**不 reset、不删除**。
-3. 实施后才发现歧义也走同一流程；已有 diff/commit/worktree 保留并如实记录。
+AI 不使用额外的状态工具；一致性靠 README 规则与人工检查。
 
-`run` 模式下 agent 报告 `AI_WORKFLOW_RESULT: discussion` 也进入同一状态；有改动则保留。
+## 4. 锁
 
-### 4.2 方案版本与批准
+- 任务锁：`.ai-workflow/.locks/<id>/`，`mkdir` 原子获取。
+- 正常结束：pause/review/block/done 时删除锁。
+- 会话异常退出：锁可能残留；确认对应会话结束后由人删除。
+- 不在锁存在时领取同一任务；不自动抢占。
 
-- `plan-seal <id> --version N`：计算「## 方案」正文的 sha256（去行尾空白与首尾空行），
-  写入 `plan_version` / `plan_sha256`。
-- `approve <id> --version N --by ... --note "用户原话"`：要求版本与当前一致、
-  方案 sha 与封存值一致、批准人/原话非空；写入 `approved_version` / `approved_plan_sha256` / `approved_*`。
-- `resume <id>`：重新计算当前方案 sha，要求与批准 sha 一致且版本一致；否则拒绝。
-- 方案内容或版本变化 → 旧批准失效。`plan-seal` 检测到内容变化时自动清空批准字段。
-- 只写方案、模型自评「可行」都不算批准；脚本只认带用户原话的 `approve` 记录。
-
-## 5. 实现、验证、审查、合并
-
-- `review <id>`：要求 worktree 无未提交改动、验证记录非空；
-  `risk: low` 至少 1 个 commit，`risk: high` 不允许 commit（只出方案）。
-  记录 `review_commit`，移到 `review/`。不做验证判定——验证内容由执行方如实填写，人工审查。
-- `approve-review <id> --commit SHA --by ... --note ...`：核对分支 HEAD、送审 commit 与 `--commit` 一致；
-  写入 `review_approved_commit` 等，移到 `approved/`。**不等于合并**。
-- `done <id> --target 分支 --merged-commit SHA --by ... --note ...`：
-  - 只接受 `approved/`；
-  - 有代码时必须给目标分支与合并提交；
-  - 合并提交必须在目标分支上；
-  - `--method merge` 时被批准 commit 必须是合并提交的祖先；
-  - squash/rebase 只能确认合并提交在目标分支上，**无法用 sha 证明内容等价**，证据里明确标注；
-  - 批准后分支 HEAD 变化 → 拒绝归档；
-  - 无代码任务（risk high 计划）用 `--no-code`，仍需人工确认。
-- `done` 不删除 worktree/分支，不 merge、不 push。
-
-## 6. 两种运行方式与锁
-
-| | 手动会话（Claude/T3） | `run`（claude -p） |
-| --- | --- | --- |
-| 入口 | `/ai-workflow <提示词>` + 脚本子命令 | `ai-workflow.sh run` |
-| 状态操作 | 人/agent 调用脚本 | 脚本 |
-| 锁 | `claim` 建立，跨命令持有，review/pause/block 释放 | 脚本持有，结束释放 |
-| 讨论 | 人工补方案、批准、resume | agent 报 discussion，脚本转入 |
-
-锁协议：
-
-- 锁目录 `.ai-workflow/locks/<id>/`，`mkdir` 原子获取；`owner` 记录 `kind`、`by`、`pid`、`created`。
-- 正常释放：`pause`、`review`、`block`、`reject`、`done`、`release`；`run` 在结果处理时释放。
-- 脚本模式（`kind=run`）：进程已退出且超过 `LOCK_STALE_MINUTES`，下次 `run` 才自动清理。
-- 手动会话（`kind=session`）可能跨轮次持锁，**不会自动清理**；确认会话结束后显式 `release <id>`。
-- 两个方式都通过同一把任务锁，不能抢同一个任务。
-
-## 7. worktree
+## 5. worktree
 
 - 位置：`.ai-workflow/worktrees/<id>/`；分支 `ai/<id>`。
-- 基准优先级：任务 `base_ref` → `config.env` 的 `BASE_REF` → 领取时主 checkout 当前 HEAD。
-  不假设项目都用 main；`eco-system` 这类项目把 `BASE_REF` 设为 `dev`（不在本仓库修改它）。
-- 已注册同分支 worktree → 复用；会话已在任务 worktree → 核验后复用，不嵌套。
-- 目录存在但不是该分支 worktree → 停止并报告；不删除、不覆盖。
+- 基准优先级：任务 `base_ref` → README「项目配置」→ 领取时主 checkout 当前 HEAD。
+- 已有同分支 worktree → 复用；目录存在但不是该分支 worktree → 停止报告，不删除、不嵌套。
 - 主 checkout 当前在 `ai/<id>` 分支 → 拒绝领取。
-- `base_commit` 在首次领取时记录；复用已有分支时用 merge-base，避免把已有提交算成 0。
+- 已处于任务 worktree → 核验仓库/分支后复用。
 
-## 8. 任务状态与证据的保存
+## 6. 批准与合并证据
 
-脚本**不自动 git add/commit**，也不为了保存调度状态在业务分支提交。
-任务文件、批准记录、合并证据都写在 `.ai-workflow/` 内的任务文件中，是否纳入版本控制、何时提交由用户决定。
-这样不会污染目标项目的 dev 分支；代价是任务状态默认只存在于工作区（或由用户自行提交）。
+- 方案批准：`plan_sha256` 必须与当前「## 方案」正文一致，`approved_version == plan_version`，
+  且 `approved_plan_sha256` 相同；方案变化后旧批准失效。
+- 审查批准：`review_approved_commit` 必须等于分支当前 HEAD。
+- 归档：`merge_target` 是真实分支，`merged_commit` 在目标分支上；
+  `merge` 方式要求被批准 commit 是合并提交的祖先。
+- squash/rebase 无法用 sha 证明内容等价，只确认合并提交在目标分支上，并如实标注。
+- 无代码任务（risk high 只出方案）确认后可归档，但必须写明无代码改动。
 
-## 9. 命令与参数
+## 7. 验证状态
 
-```text
-next
-claim <id> [--by 名字] [--force]
-pause <id> --reason 文本
-plan-seal <id> [--version N]
-approve <id> --version N --by 名字 --note 用户原话
-resume <id> [--force]
-review <id>
-approve-review <id> --commit SHA --by 名字 --note 文本
-done <id> --target 分支 --merged-commit SHA --by 名字 --note 文本 [--method merge|squash|rebase]
-done <id> --no-code --by 名字 --note 文本
-reject <id> [--reason 文本]
-block <id> --reason 文本
-release <id>
-check
-run
-```
+**已验证**（`bash scripts/test-ai-workflow.sh`，临时仓库）：
+初始化只生成 README/TEMPLATE + 五目录；不生成 scripts/docs/config/.gitignore；
+不修改 AGENTS/CLAUDE/docs/根 .gitignore；幂等并保留用户 README；
+未标记 README 冲突不写入；旧 v1 结构不自动升级；旧 `.ai/` 只警告；
+verify 能发现结构缺失；单一技能入口；assets 只剩 README。
 
-配置（`.ai-workflow/config.env`，环境变量优先）：`BASE_REF`、`PROJECT_TOOLS`、`WORKTREE_SETUP`、
-`REVIEW_LIMIT`（review+approved 上限）、`LOCK_STALE_MINUTES`、`CLAUDE_MODEL` 等。
+**未验证 / 限制**：
 
-## 10. 验证状态与风险
-
-**已验证**（隔离测试，`bash scripts/test-ai-workflow.sh`，153 项；临时 fixture + 假 claude）：
-初始化只写 `.ai-workflow/`、幂等与冲突停止；不修改 AGENTS/CLAUDE/docs/根 .gitignore；
-单一技能入口；手写任务；needs-discussion 零代码改动；实施后暂停保留 diff/worktree；
-讨论任务不被自动领取；未批准/版本不符/方案变化阻止恢复；批准后可恢复；
-手动与脚本锁互斥及遗留锁边界；worktree 复用不嵌套；review→approve→merge→done 门槛；
-squash 受限校验；risk high 无代码归档；`run` 的成功/失败/阻断/歧义/中断；`check` 发现伪造归档。
-
-**未验证 / 已知限制**：
-
-1. 真实 `claude -p` 在真实项目中的完整一轮（提示词是否被遵守）。
-2. 真实 T3 的命令/API：本技能不假设、不伪造适配；由用户在会话里按 WORKFLOW 执行。
-3. squash/rebase 合并无法用 sha 证明内容等价，只能确认合并提交在目标分支；仍需人工确认。
-4. 锁只覆盖任务级互斥；`claim` 后进程异常退出会留下 `kind=session` 锁，需显式 `release`。
-5. 没有 `.claude/settings.json` 的 permissions/hook 层护栏；护栏在提示词、脚本校验与工具黑白名单。
-6. 任务状态默认不提交，跨机器/多人协作时需自行版本化 `.ai-workflow/`。
+- AI 是否严格遵守 README 中的状态与批准规则（没有脚本强制）；
+- 锁在会话异常退出后的自动恢复（需人工确认并删除）；
+- squash/rebase 的内容等价无法用 sha 证明；
+- 没有 `.claude/settings.json` 的 permissions/hook 层护栏；
+- 真实 `claude -p` 未验证；本工作流不随初始化分发 runner。

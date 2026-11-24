@@ -3,112 +3,92 @@
   "evals": [
     {
       "id": 1,
-      "name": "init-only-writes-dot-ai-workflow",
-      "prompt": "/ai-workflow init。这是一个小 node 项目，帮我初始化 AI 任务池工作流，别提交。",
-      "fixture": "git 仓库：README.md、package.json（scripts.test = node --test）、已提交的 AGENTS.md 与 CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore（node_modules/），没有任何 .ai-workflow/",
-      "expected_output": "只新增 .ai-workflow/；AGENTS.md、CLAUDE.md、docs/、根 .gitignore 字节不变；没有 git commit；给出 BASE_REF / PROJECT_TOOLS 待确认项",
+      "name": "init-minimal-structure",
+      "prompt": "/ai-workflow init。帮我初始化 AI 任务池工作流，别提交。",
+      "fixture": "git 仓库：README.md、已提交的 AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore，没有 .ai-workflow/",
+      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md 和 inbox/doing/review/done/list；不生成脚本、config.env、docs、templates、.gitignore；不提交",
       "assertions": [
-        ".ai-workflow/.initialized 内容为 ai-workflow:v1",
-        ".ai-workflow/README.md、WORKFLOW.md、config.env、templates/task.md、scripts/ai-workflow.sh 存在",
-        "AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore 的 sha256 与运行前一致",
-        "没有创建 .claude/、docs/legacy/、docs/ai-workflow.md",
+        ".ai-workflow 下只有 README.md、TEMPLATE.md + 五个目录",
+        "没有 .ai-workflow/scripts、docs、templates、config.env、.gitignore、.initialized",
+        "存在 .ai-workflow/TEMPLATE.md 和 .ai-workflow/list/",
+        "AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore 的 sha256 不变",
         "git log 没有新增提交",
         "scripts/verify.sh 退出码为 0"
       ]
     },
     {
       "id": 2,
-      "name": "init-is-idempotent-and-stops-on-conflict",
-      "prompt": "/ai-workflow init",
-      "fixture": "已用本技能初始化过的仓库；第二次执行前手工修改 .ai-workflow/WORKFLOW.md，并删除 .ai-workflow/config.env",
-      "expected_output": "列出 CONFLICT，退出码非 0，整次不写入；不覆盖被修改文件，也不补回被删除文件",
+      "name": "init-idempotent-preserves-readme",
+      "prompt": "/ai-workflow init（重复执行）",
+      "fixture": "已初始化；用户已编辑 .ai-workflow/README.md 的项目配置",
+      "expected_output": "保留用户 README，只补缺失目录；不覆盖",
       "assertions": [
-        "第二次执行输出包含 CONFLICT 与 WORKFLOW.md",
-        "退出码非 0",
-        "被修改的 WORKFLOW.md 内容保持不变",
-        "config.env 没有被重新创建",
-        "没有改动 .ai-workflow/ 之外的文件"
+        "重复执行退出码为 0",
+        "README 内容与执行前一致",
+        "输出包含 SKIP"
       ]
     },
     {
       "id": 3,
-      "name": "legacy-ai-loop-is-not-used",
+      "name": "unmarked-readme-stops",
       "prompt": "/ai-workflow init",
-      "fixture": "仓库里同时存在旧 .ai/inbox/T-OLD.md、scripts/ai-loop.sh，且 AGENTS.md 含 ai-loop-init:v1",
-      "expected_output": "只提示旧版内容，不读取、不迁移、不修改；初始化继续写 .ai-workflow/",
+      "fixture": "仓库已有未标记的 .ai-workflow/README.md（用户自己的说明）",
+      "expected_output": "停止，说明不覆盖；不创建任务目录",
       "assertions": [
-        "输出有旧版 .ai/ 与 scripts/ai-loop.sh 的 WARN",
-        ".ai/inbox/T-OLD.md 与 scripts/ai-loop.sh 仍存在且内容不变",
-        ".ai-workflow/ 正常生成",
-        "没有把旧技能当成新的派工入口"
+        "退出码非 0",
+        "README 原内容保持不变",
+        "没有创建 inbox/doing/review/done"
       ]
     },
     {
       "id": 4,
-      "name": "task-mode-drafts-without-auto-creating",
+      "name": "task-mode-drafts-without-writing",
       "prompt": "/ai-workflow task 把「订单列表样式调整」拆成任务",
       "fixture": "已初始化的仓库；用户没有说写入",
-      "expected_output": "按模板给出草稿与字段建议，不自动写 .ai-workflow/inbox/，不实现",
+      "expected_output": "按 README 模板给草稿，不写 inbox，不实现",
       "assertions": [
         ".ai-workflow/inbox/ 没有新增文件",
-        "回复包含 id/type/priority/risk 与验收标准建议",
-        "没有建 worktree、没有 claim、没有改业务代码"
+        "回复包含 id/type/priority/risk 与验收标准建议"
       ]
     },
     {
       "id": 5,
-      "name": "ambiguity-enters-discussion-with-zero-code",
+      "name": "discussion-status-with-zero-code",
       "prompt": "/ai-workflow 处理 T-20260101-001",
-      "fixture": "已初始化的仓库；任务接口口径不明确；claim 后只读探索",
-      "expected_output": "任务进入 discussion/needs-discussion；任务文件记录事实、问题、方案、建议、代码改动状态；业务代码零改动",
+      "fixture": "已初始化；任务有接口口径歧义；AI 只读探索",
+      "expected_output": "status 改为 needs-discussion，任务移回 inbox，锁删除，worktree/已有改动保留，业务代码零改动",
       "assertions": [
-        "任务文件目录为 .ai-workflow/discussion/，status 为 needs-discussion",
-        "任务正文包含待决问题、可选方案、建议方案、用户下一步",
-        "任务 worktree 的 git status 为空且没有新 commit",
-        "锁已释放",
-        "run 与 next 不会领取该任务"
+        "任务在 inbox/ 且 status=needs-discussion",
+        "任务锁 .ai-workflow/.locks/<id> 已删除",
+        "worktree 状态无新增业务代码改动",
+        "任务正文记录事实、问题、方案、建议、用户下一步"
       ]
     },
     {
       "id": 6,
-      "name": "approval-must-match-plan-version-and-hash",
-      "prompt": "/ai-workflow 恢复 T-20260101-001",
-      "fixture": "discussion 任务已有方案 v1；分别尝试未批准、批准版本 2、修改方案后恢复",
-      "expected_output": "未批准与版本不符被拒绝；方案内容变化后旧批准失效；正确批准当前版本后可 resume，复用原 worktree",
+      "name": "approval-and-merge-evidence-gates",
+      "prompt": "/ai-workflow 恢复并送审 T-20260101-001，然后尝试归档",
+      "fixture": "discussion 任务；分别尝试未批准恢复、错误版本、方案修改后恢复、审查通过后直接 done、未合并 done、正确合并后 done",
+      "expected_output": "未批准/版本或 sha 不符时拒绝恢复；review_approved 不等于 done；缺少合并证据不归档",
       "assertions": [
-        "resume 在未 approve 时退出码非 0",
-        "approve --version 2 在 plan_version 为 1 时退出码非 0",
-        "修改「## 方案」后 resume 退出码非 0，原因提到批准失效/内容变化",
-        "plan-seal --version 2 后旧批准字段被清空",
-        "approve 当前版本后 resume 成功，且没有新建第二个 ai/T-20260101-001 worktree"
+        "未批准时恢复被拒绝",
+        "方案内容变化后旧批准失效",
+        "review_approved 状态下直接 done 被拒绝",
+        "未合并时 done 被拒绝",
+        "人工合并并记录 merged_commit 后才能 done"
       ]
     },
     {
       "id": 7,
-      "name": "review-approval-is-not-merge",
-      "prompt": "/ai-workflow 处理并送审 T-20260101-001，然后尝试归档",
-      "fixture": "实现并验证完成的任务；review 后分别尝试直接 done、错误 commit 批准、未合并 done、正确合并后 done",
-      "expected_output": "review 不能直接 done；审查批准必须对应当前 HEAD；未合并不能归档；人工合并提供证据后可 done",
-      "assertions": [
-        "review 后状态为 needs_review，worktree 保留",
-        "从 review/ 调 done 退出码非 0",
-        "approve-review 使用错误 commit 退出码非 0",
-        "未合并时 done 退出码非 0",
-        "人工 merge 后 done 写入 merged_commit 并进入 done/",
-        "worktree 与 ai/<id> 分支没有被脚本删除"
-      ]
-    },
-    {
-      "id": 8,
-      "name": "one-skill-entry-and-no-legacy-dispatch",
-      "prompt": "这个仓库有几个 AI 工作流技能入口？会不会走 ai-loop-task？",
-      "fixture": "源包 skills/ 目录",
-      "expected_output": "只有一个 ai-workflow SKILL.md；旧 ai-loop-task 只作为归档参考，不会被发现或派工",
+      "name": "single-entry-minimal-assets",
+      "prompt": "这个仓库有几个 AI 工作流技能入口？初始化会生成脚本吗？",
+      "fixture": "源包 skills/ 与 assets/",
+      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README + 四目录，不分发脚本",
       "assertions": [
         "skills/ 下只有一个 SKILL.md",
-        "该 SKILL.md 的 name 为 ai-workflow",
-        "skills/ai-loop-task 不存在",
-        "旧内容归档在 references/legacy-ai-loop-task.md"
+        "SKILL.md 的 name 为 ai-workflow",
+        "assets/ 只有 README.md",
+        "不再保留旧的脚本版状态机"
       ]
     }
   ]

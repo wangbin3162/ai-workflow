@@ -1,70 +1,80 @@
 # ai-workflow
 
-用一个**用户手写**的 markdown 任务池驱动 AI 编码会话：任务写进 `.ai-workflow/inbox/`，
-agent 在独立 git worktree 里探索、讨论、实现、验证，结果进 `.ai-workflow/review/` 等人审。
-**合并、push、发版永远由人做。**
+用**用户手写**的任务驱动 AI 编码会话：AI 只读探索 → 有歧义先讨论 → 用户批准方案 → 实施验证 →
+人工审查 → 人工合并 → 归档。**AI 不合并、不 push、不删除 worktree。**
 
-项目原名 `ai-loop-starter`；现在对外只有一个技能入口：**`/ai-workflow`**。
-本仓库不自动安装技能；需要你把 `skills/ai-workflow/` 放到 Claude Code 能发现的位置（位置由你决定）。
+对外只有一个技能入口：**`/ai-workflow`**（`init` / `task` / 加提示词）。
+项目原名 `ai-loop-starter`；本仓库不自动安装技能，需要你把 `skills/ai-workflow/` 放到
+Claude Code 能发现的位置。
+
+## 初始化后只有这些
+
+```text
+.ai-workflow/
+├── README.md      # 说明 + 状态表 + AI 执行流程
+├── TEMPLATE.md    # 任务模板
+├── inbox/         # new / needs-discussion / blocked
+├── doing/         # claimed
+├── review/        # needs_review / review_approved
+├── done/          # done
+└── list/          # 临时任务列表/方案草稿，供 AI 拆分
+```
+
+不生成脚本、`config.env`、`docs/`、`templates/` 或 `.gitignore`。
+任务流转由 AI 直接操作任务文件和 git；`.ai-workflow/` 是否纳入版本控制由项目自己决定。
 
 ## 三个入口（同一个技能）
 
 | 入口 | 用途 |
 | --- | --- |
-| `/ai-workflow init` | 在目标项目安全初始化 `.ai-workflow/`；只写这个目录，幂等，冲突就停 |
-| `/ai-workflow task` | 按模板帮用户拆分/整理任务；不自动建任务、不实现 |
-| `/ai-workflow <提示词>` | 领取用户手写任务 → 只读探索 → 有歧义先进讨论 → 批准后实施验证 → 送审 |
+| `/ai-workflow init` | 只写 `.ai-workflow/README.md`、`TEMPLATE.md` + 五个目录；幂等，旧结构不自动升级 |
+| `/ai-workflow task` | 按 TEMPLATE 整理任务草稿；分析 `list/` 里的列表拆分任务；默认不写 inbox |
+| `/ai-workflow <提示词>` | 领取任务 → 只读探索 → 讨论/批准 → 实施验证 → 送审 |
 
 ## 关键行为
 
-- **初始化只写 `.ai-workflow/`**：不改目标项目的 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
-- **任务由人手写**：复制 `.ai-workflow/templates/task.md`；没有自动建任务的工具。
-- **歧义先讨论**：任务进 `needs-discussion`，记录事实、问题、方案、建议；不会被自动再次领取。
-- **恢复需要有版本的批准**：`plan_version` + 方案内容 sha256 + 用户原话；方案变化旧批准失效。
-- **审查通过不等于合并**：`review → approved → done` 分开；done 必须有目标分支与合并提交证据。
-- **两种运行方式共用锁**：手动 Claude/T3 会话与可选 `claude -p` 脚本不能抢同一个任务。
+- **歧义先讨论**：`needs-discussion` 在 `inbox/`，不得被当作新任务领取。
+- **恢复需要有版本的批准**：`plan_version` + 「## 方案」sha256 + 用户原话；方案变化旧批准失效。
+- **审查通过不等于合并**：`review_approved` 仍留在 `review/`；`done` 必须有目标分支与合并提交证据。
+- **两种写者共用任务锁**：`.ai-workflow/.locks/<id>/`（`mkdir`），会话异常后由人确认再删。
 - **不自动提交任务状态、不合并、不 push、不删 worktree**。
 
-## 在目标项目里的最短流程
+## 最短流程
 
 ```bash
-# 在 Claude Code/T3 会话中：
+# 在目标项目（Claude Code/T3 会话）
 /ai-workflow init
 
-# 用户手写任务后：
-.ai-workflow/scripts/ai-workflow.sh next
-.ai-workflow/scripts/ai-workflow.sh claim T-20260101-001 --by 你的名字
-# ……探索/讨论/实施……
-.ai-workflow/scripts/ai-workflow.sh review T-20260101-001
-.ai-workflow/scripts/ai-workflow.sh approve-review T-20260101-001 --commit <sha> --by 审查人 --note "通过"
-# 人工合并后：
-.ai-workflow/scripts/ai-workflow.sh done T-20260101-001 --target main --merged-commit <sha> --by 确认人 --note "已合并"
+# 用户按 .ai-workflow/TEMPLATE.md 手写任务；列表可放 .ai-workflow/list/
+# 在会话里：
+/ai-workflow task 分析 list/需求列表.md 并拆分任务
+/ai-workflow 处理 T-20260101-001
 ```
 
-详细步骤见目标项目生成的 `.ai-workflow/WORKFLOW.md`，或源包 [docs/quickstart.md](docs/quickstart.md)。
+AI 会按 `.ai-workflow/README.md` 完成领取、探索、讨论、批准、实施、验证、送审；
+人工审查、合并、归档同样按该文件执行。
 
 ## 源包结构
 
 ```text
-skills/ai-workflow/          # 唯一技能入口（SKILL.md + assets + scripts + references + evals）
-  assets/                    # 装进目标 .ai-workflow/ 的文件
-  assets/docs/               # 目标项目内的 QUICKSTART / REFERENCE / TROUBLESHOOTING / MIGRATION
-  scripts/                   # detect / install / verify
-scripts/ai-workflow.sh       # 任务池状态机（源包版本）
-scripts/test-ai-workflow.sh  # 隔离回归测试（临时 fixture + 假 claude）
-.ai-workflow/                # 本仓库自己的示例任务池
-docs/ARCHITECTURE.md         # 设计、状态机、锁、worktree、未验证项
-docs/quickstart.md           # 第一次在真实工程里使用
-docs/MIGRATION.md            # 旧 ai-loop / ai-loop-task 迁移
-archive/legacy-v1/           # 旧版模板归档（不再被技能发现）
+skills/ai-workflow/          # 唯一技能入口
+  SKILL.md
+  assets/README.md           # 目标 .ai-workflow/ 的说明与执行规则
+  assets/TEMPLATE.md         # 目标 .ai-workflow/ 的任务模板
+  scripts/                   # detect / install / verify（技能自身工具，不随初始化分发）
+  references/                # 设计说明、旧入口归档
+  evals/evals.json
+scripts/test-ai-workflow.sh  # 初始化/结构回归测试
+docs/                        # ARCHITECTURE / quickstart / MIGRATION / code-standards
 ```
 
 ## 开发与检查
 
 ```bash
-bash -n scripts/ai-workflow.sh && bash -n scripts/test-ai-workflow.sh
-bash scripts/test-ai-workflow.sh          # 153 项隔离检查（模型调用全部 mock）
+bash -n skills/ai-workflow/scripts/*.sh
+bash scripts/test-ai-workflow.sh     # 47 项隔离检查
+bash skills/ai-workflow/scripts/verify.sh <目标项目>
 ```
 
-真实 `claude -p` 没有在真实项目里跑通一轮；跑通前不要把 `run` 当无人值守使用。
-测试只证明脚本状态机、初始化与锁；不证明真实模型会遵守提示词。
+真实 `claude -p` 没有在真实项目里验证；本工作流不随初始化分发运行脚本，
+任务流转由会话里的 AI 按 README 执行。

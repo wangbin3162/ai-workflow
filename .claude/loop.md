@@ -1,18 +1,12 @@
 # 交互会话入口（本仓库自身）
 
-对外只使用一个技能：**`/ai-workflow`**。不要在这里复制整套流程。
+对外只使用一个技能：**`/ai-workflow`**。
 
-- 初始化另一个项目：`/ai-workflow init`
-- 整理/拆分任务：`/ai-workflow task`
-- 领取并处理任务：`/ai-workflow <提示词>`，流程见 [`skills/ai-workflow/SKILL.md`](../skills/ai-workflow/SKILL.md)
-  与 [`skills/ai-workflow/assets/WORKFLOW.md`](../skills/ai-workflow/assets/WORKFLOW.md)
+- 初始化：`/ai-workflow init`（生成 README、TEMPLATE + inbox/doing/review/done/list）
+- 整理任务：`/ai-workflow task`（可按 `list/` 里的列表拆分）
+- 领取并处理任务：`/ai-workflow <提示词>`，按 [`.ai-workflow/README.md`](../.ai-workflow/README.md)
+  和 [`skills/ai-workflow/SKILL.md`](../skills/ai-workflow/SKILL.md) 执行
 
-本仓库自己的示例任务池在 `.ai-workflow/`；状态机脚本是 `scripts/ai-workflow.sh`。
-
-强制顺序：
-
-1. 先 `claim`，只读探索，不改业务代码；
-2. 有重要歧义 → 填「## 讨论」→ `pause`，任务进 `discussion/`；
-3. 用户补方案、`plan-seal`、明确批准、`approve`、用户要求后 `resume`；
-4. 实施验证 → `review`；不自动合并、不 push、不删 worktree；
-5. 人工 `approve-review` 并合并后，`done` 才会归档。
+任务流转由 AI 直接操作任务文件与 git：锁用 `mkdir .ai-workflow/.locks/<id>`，
+有歧义进 `status: needs-discussion`，恢复前校验方案版本与 sha256，
+审查通过不等于合并，`done` 必须有合并证据。没有随初始化分发的脚本。

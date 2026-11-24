@@ -1,17 +1,15 @@
 ---
-id: EXAMPLE-T-20260101-001
-type: chore
-title: 【示例任务，可直接删除】说明任务文件格式
-status: example
-priority: P2
-created: 2026-01-01
+id: T-YYYYMMDD-001
+type: feature
+title: 一句话说明要做什么
+status: new
+priority: P1
+created: YYYY-MM-DD
 base_ref:
 claimed_by:
 claimed_at:
 worktree:
 base_commit:
-attempts: 0
-max_attempts: 2
 risk: low
 plan_version: 0
 plan_sha256:
@@ -33,16 +31,12 @@ merged_at:
 merged_note:
 ---
 
-> **示例文件**：`status: example`，不会被领取。看完可直接删除。
-
 ## 背景 / 现象
-
-演示任务文件有哪些字段和小节。
 
 ## 验收标准（必须可验证）
 
-- [ ] 新任务 `status` 为 new，`id` 与文件名一致
-- [ ] 验收标准里写真实命令或可观察步骤
+- [ ] 写真实命令或可观察步骤；不要写「跑一下测试」「基本完成」
+- [ ] 没跑过的检查写「未验证」并说明原因
 
 ## 不要做
 
@@ -52,19 +46,14 @@ merged_note:
 ## 讨论（只在 needs-discussion 时填写）
 
 ### 已确认事实（附文件路径或命令证据）
-
 ### 待决问题
-
 ### 可选方案与影响
-
 ### 建议方案（明确标为建议，不是用户决定）
-
 ### 当前代码改动（有 / 无；已提交与未提交各多少）
-
 ### 用户下一步（需要补充或批准什么）
 
 ## 方案
 
 ## 验证记录（命令 / 执行目录 / 退出码 / 结果；未验证的写明）
 
-## 人工审查与合并记录（脚本追加，人不改）
+## 审查与合并记录

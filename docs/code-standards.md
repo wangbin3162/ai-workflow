@@ -8,7 +8,7 @@
 
 ### 1. 关键行为有能区分修复前后的检查
 
-改 `scripts/ai-workflow.sh` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
+改 `skills/ai-workflow/scripts/` 或 `assets/README.md` 的行为，要在 `scripts/test-ai-workflow.sh` 里补一个用例。
 把旧代码放回去跑新用例，应出现**真的 `FAIL`**，并点名具体行为；编译错误、跳过、断言缺失都不算。
 反向验证：在可安全还原的自有改动上，手工改坏一处，确认用例变红；还原后确认变绿。
 
@@ -16,25 +16,27 @@
 
 ### 2. 测试不碰真实环境
 
-`scripts/test-ai-workflow.sh` 只在 `mktemp -d` 的临时仓库里跑，用假 claude（`$TMP/claude-stub`）。
-**不要对真实 `.ai-workflow/`、真实 worktree、真实 `claude` 跑测试。** 要对真实任务试跑，用 `DRY_RUN=1`（见第 4 条）。
+`scripts/test-ai-workflow.sh` 只在 `mktemp -d` 的临时仓库里跑，不调用模型。
+**不要对真实 `.ai-workflow/`、真实 worktree、真实业务仓库跑测试。**
 
 ### 3. 构建与检查
 
 没有构建步骤。真实命令：
 
-- `bash -n scripts/ai-workflow.sh && bash -n scripts/test-ai-workflow.sh` —— 语法检查
-- `bash scripts/test-ai-workflow.sh` —— 回归测试
+- `bash -n skills/ai-workflow/scripts/*.sh && bash -n scripts/test-ai-workflow.sh` —— 语法检查
+- `bash scripts/test-ai-workflow.sh` —— 初始化/结构回归测试
+- `bash skills/ai-workflow/scripts/verify.sh <目标>` —— 目标项目结构验证
 
-**当前基线（实测值只记在这里）：** 153 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
+**当前基线（实测值只记在这里）：** 47 个检查全部通过（2026-11-24 实跑）。基线变了就改这一行并带日期。
 
 ### 4. 尽可能真实使用
 
 能对真实环境跑的，必须真跑一次：真任务、真 `claude`、真 worktree。
 **跑不了的，明说「未验证」。没试过的东西，不建立在它之上，也不告诉用户它能用。**
 
-本项目的「真实环境」指：在一个真实仓库里放一个小任务，`DRY_RUN=1 scripts/ai-workflow.sh run` 看候选，
-再 `scripts/ai-workflow.sh run` 完整跑一轮。**在这一轮跑通之前，不宣称可以无人值守**；
+本项目的「真实环境」指：在一个真实仓库里用 `/ai-workflow init` 初始化，手写一个小任务，
+在 Claude/T3 会话里按 `.ai-workflow/README.md` 走完领取、讨论/批准、实施、送审。
+真实会话的规则遵守情况不能由脚本证明，汇报时必须如实说明。
 `docs/ARCHITECTURE.md`「未验证与风险」里的条目随着真实运行逐条销项。
 
 ### 5. 范围检查
@@ -48,7 +50,8 @@
 - 有没有把没验证的事写成已完成？
 - 有没有用 workaround 掩盖根因？
 - 有没有留下临时文件、调试代码、无关改动？
-- 锁释放了吗（`.ai-workflow/locks/`）？worktree 与分支名是否与任务 id 一致？`scripts/ai-workflow.sh check` 通过吗？
+- 锁释放了吗（`.ai-workflow/.locks/<id>/`）？worktree 与分支名是否与任务 id 一致？
+  status 与目录是否一致？
 
 ## 二、提交信息
 
@@ -66,7 +69,7 @@
 要求：
 
 - **标题用行为描述**，不要写「更新」「优化 X」「重构 Y」。至少带上 scope（`loop` / `task` / `docs`）。
-- **数字要具体**：不写「测试通过」，写「`bash scripts/test-ai-workflow.sh` 153 个检查全过」。
+- **数字要具体**：不写「测试通过」，写「`bash scripts/test-ai-workflow.sh` 47 个检查全过」。
 - **「没试过」是必填项**，没验证的部分写「未跑」，不省略。
 - 大改动（多个文件或行为面）必须有 body；只改错别字可以只有标题。
 - 任务分支上的 commit 同样遵守。脚本不会自动提交任务状态，没有状态迁移提交的例外。

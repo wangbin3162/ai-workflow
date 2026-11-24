@@ -1,7 +1,5 @@
 # ai-workflow 运行时产物（.ai-workflow/.gitignore 也会覆盖）
-.ai-workflow/worktrees/
-.ai-workflow/locks/
-.ai-workflow/logs/
+.ai-workflow
 *.result.json
 *.stderr.log
 *.setup.log

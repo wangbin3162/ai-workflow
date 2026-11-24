@@ -1,103 +1,74 @@
 # 极简上手流程
 
-适用于第一次在真实工程里使用：**先手写任务、手动跑；稳定后再考虑自动化。**
-机制见 [ARCHITECTURE.md](ARCHITECTURE.md)；目标项目内生成的是 `.ai-workflow/WORKFLOW.md`。
+## 1. 初始化
 
-## 1. 初始化（一次性）
-
-在目标工程根目录开 Claude Code，说：
+在目标工程根目录开 Claude Code：
 
 > /ai-workflow init
 
-- 技能先只读侦察，再给 `--plan`；只写 `.ai-workflow/`。
-- 初始化会同时生成 `.ai-workflow/docs/`（QUICKSTART / REFERENCE / TROUBLESHOOTING / MIGRATION），
-  先把 `.ai-workflow/docs/QUICKSTART.md` 给用户看。
-- 如果输出 `CONFLICT`，先人工比较冲突文件，决定保留哪一版；不会覆盖。
-- 旧 `.ai/`、`scripts/ai-loop.sh` 只提示，不迁移。
-- 填 `.ai-workflow/config.env`：
-  - `BASE_REF`：明确的开发基准分支/提交（如 `dev`），不要默认都是 main；
-  - `PROJECT_TOOLS`：真实跑通的测试/构建命令；
-  - `WORKTREE_SETUP`：依赖安装命令（没有依赖就留空）。
-- 运行 `.ai-workflow/scripts/ai-workflow.sh check`，再自己看 `git status`。
-  初始化不会 `git add/commit`；是否提交由你决定。
+只会生成：
 
-## 2. 手写一个任务
-
-```bash
-cp .ai-workflow/templates/task.md .ai-workflow/inbox/T-20260101-001.md
+```text
+.ai-workflow/
+├── README.md
+├── TEMPLATE.md
+├── inbox/
+├── doing/
+├── review/
+├── done/
+└── list/
 ```
 
-填：
+不生成脚本、配置、额外文档，也不改 `AGENTS.md`、`CLAUDE.md`、`docs/`、根 `.gitignore`。
+然后打开 `.ai-workflow/README.md`，补「项目配置」：基准分支、测试命令、依赖安装。
+运行 `bash skills/ai-workflow/scripts/verify.sh <目标>` 检查结构。
 
-- `id` 与文件名一致；`status: new`；`risk` 拿不准写 `high`；
-- `base_ref` 可选；不写就用 `BASE_REF`，再空就用领取时主 checkout 当前 HEAD；
-- 背景、验收标准（真实命令或可观察步骤）、不要做；
-- 复杂需求：先讨论方案，把完整方案贴到「## 方案」；
-- 没有自动建任务的工具；可以叫 `/ai-workflow task` 帮你整理草稿，但文件由你确认。
+## 2. 手写任务或从列表拆分
 
-## 3. 在手动会话里执行
+复制 `.ai-workflow/TEMPLATE.md` 到 `.ai-workflow/inbox/T-20260101-001.md`。
+至少填 `id`（与文件名一致）、`title`、`status: new`、`risk`、背景和验收标准。
+复杂需求先讨论方案，把完整方案写进「## 方案」。
 
-新开 Claude/T3 会话：
+也可以把任务列表/方案草稿放进 `.ai-workflow/list/`，然后在会话里说：
 
-> /ai-workflow 领取并处理 T-20260101-001
+> /ai-workflow task 分析 list/需求列表.md 并拆分任务
 
-它会：
+AI 默认只展示拆分草稿；你确认后才写 inbox。
 
-1. `claim`（拿锁、建/复用 worktree、分支 `ai/<id>`）；
-2. 只读探索；
-3. 有重要歧义 → 填「## 讨论」→ `pause`，任务进 `discussion/`，业务代码零改动；
-4. 恢复流程见第 4 节；
-5. 实施、验证、`review`，进入 `review/` 等你审查。
+## 3. 在会话里执行
 
-需求不清时它应停下讨论，而不是猜。
+> /ai-workflow 处理 T-20260101-001
 
-## 4. 讨论、方案批准、恢复
+AI 会按 README：
 
-1. 用户补全「## 方案」，必要时修改版本号。
-2. `.ai-workflow/scripts/ai-workflow.sh plan-seal <id> --version 1`
-3. 用户明确说「批准版本 1」后：
-   `.ai-workflow/scripts/ai-workflow.sh approve <id> --version 1 --by 你 --note "用户批准原话"`
-4. 用户明确要求恢复后：
-   `.ai-workflow/scripts/ai-workflow.sh resume <id>`
+1. `mkdir .ai-workflow/.locks/<id>` 加锁；
+2. 任务移到 `doing/`，准备 worktree（分支 `ai/<id>`）；
+3. 只读探索；
+4. 有重要歧义 → 写「## 讨论」→ status `needs-discussion`、移回 inbox、释放锁，保留已有改动；
+5. 用户补方案 → 计算 sha256 → 用户明确批准 → 恢复；
+6. 实施、验证、送 `review/`。
 
-方案内容或版本变了，旧批准自动失效；只写方案不代表批准。
+## 4. 讨论、批准、恢复
 
-## 5. 审查与合并
+用户明确说「批准版本 N」后，AI 才写：
 
-```bash
-git diff <base_commit>...ai/<id>
-cat .ai-workflow/review/<id>.md
+- `approved_version` / `approved_plan_sha256`（必须与当前方案 sha256 一致）
+- `approved_by` / `approved_at` / `approved_note`（用户原话）
 
-# 审查通过（不等于合并）
-.ai-workflow/scripts/ai-workflow.sh approve-review <id> --commit <sha> --by 你 --note "审查结论"
+方案内容或版本变化后旧批准失效。恢复前 AI 必须重新计算 sha256 并比对。
 
-# 人工合并（示例；按项目实际分支调整）
-git merge --no-ff ai/<id>
-merge_sha="$(git rev-parse HEAD)"
+## 5. 审查、合并、归档
 
-# 归档：写入合并证据
-.ai-workflow/scripts/ai-workflow.sh done <id> --target main --merged-commit "$merge_sha" --by 你 --note "已确认合并"
-```
+- 人工查看 diff 与「## 验证记录」；
+- 人工审查通过：AI 记录 `review_approved_commit`（等于分支 HEAD）、status `review_approved`；
+- 人工执行合并；
+- AI 校验合并提交在目标分支上，记录 `merged_commit`、`merge_target`、`merge_method`，
+  status `done` 并移到 `done/`。
 
-拒绝：`.ai-workflow/scripts/ai-workflow.sh reject <id> --reason "原因"`。
+squash/rebase 只能确认合并提交在目标分支上，无法用 sha 证明内容等价，必须写明。
+审查通过不等于已合并；没有合并证据不归档。
 
-squash/rebase 用 `--method squash|rebase`；脚本会标注无法用 sha 证明内容等价。
+## 6. 旧结构
 
-## 6. 什么时候用脚本模式
-
-连续几个任务都满足：验证记录真实、无越界改动、无返工。然后：
-
-```bash
-DRY_RUN=1 .ai-workflow/scripts/ai-workflow.sh run
-.ai-workflow/scripts/ai-workflow.sh run
-```
-
-它是可选的单任务模式，与手动会话共用任务锁。真实 `claude -p` 在真实项目里没有跑通记录前，
-不要当无人值守使用。
-
-## 7. 出问题
-
-- 锁残留：确认会话结束后 `.ai-workflow/scripts/ai-workflow.sh release <id>`。
-- `doing/` 无锁：下次 `run` 会转入 `blocked/` 并保留 worktree；人工核对后再决定。
-- worktree 冲突：脚本会停止并报告；不会删除或嵌套创建。
-- 旧任务迁移：见 [MIGRATION.md](MIGRATION.md)。
+旧的 `.ai/`、v1/v2 `.ai-workflow` 结构、旧 `scripts/ai-loop.sh` 都不会自动迁移，
+见 [MIGRATION.md](MIGRATION.md)。
