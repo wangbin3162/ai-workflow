@@ -3,8 +3,8 @@
 对外只使用一个技能：**`/ai-workflow`**。
 
 - 初始化：`/ai-workflow init`（生成 README、TEMPLATE、CONFIG、guide.html + inbox/doing/review/done/list）
-- 整理任务：`/ai-workflow task`（可按 `list/` 里的列表拆分草稿）
-- 领取并处理任务：`/ai-workflow <提示词>`，按 [`.ai-workflow/README.md`](../.ai-workflow/README.md)、
+- 整理任务：`/ai-workflow task`（按 `list/` 拆草稿，分析并行条件，确认后重建 `inbox/GUIDE.md`）
+- 领取并处理任务：`/ai-workflow <提示词>`（并行/`run-all` 默认一任务一子代理），按 [`.ai-workflow/README.md`](../.ai-workflow/README.md)、
   [`.ai-workflow/CONFIG.md`](../.ai-workflow/CONFIG.md) 和 [`skills/ai-workflow/SKILL.md`](../skills/ai-workflow/SKILL.md) 执行
 - 归档清理：`/ai-workflow archive`（批量整理 done/ 中的已完成任务并清理 worktree 与已合并分支）
 

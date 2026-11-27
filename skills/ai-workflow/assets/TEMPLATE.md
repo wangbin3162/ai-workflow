@@ -8,11 +8,14 @@ risk: low
 priority: P1
 created: YYYY-MM-DD
 base_ref:
+execution: serial
+agent_model:
 # ===== 以下由 AI 自动填写，无需手动编辑 =====
 claimed_by:
 claimed_at:
 worktree:
 base_commit:
+parallel_group:
 plan_version: 0
 plan_sha256:
 approved_version:

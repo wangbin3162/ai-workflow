@@ -673,13 +673,13 @@
     <article class="card">
       <p class="k">02 · 整理与Bug</p>
       <h2>拆分或Bug收割</h2>
-      <p>分析 <code>list/</code> 拆分需求；或用 <code>bugcheck</code> 检索 Bug 清单，或 <code>bugfix</code> 智能归并并一键修完。</p>
+      <p>分析 <code>list/</code> 拆分需求，先判并行条件并重建 <code>inbox/GUIDE.md</code>；或用 <code>bugcheck</code> 检索 Bug 清单。</p>
       <code>/ai-workflow task / bugfix</code>
     </article>
     <article class="card">
       <p class="k">03 · 执行与跑批</p>
       <h2>单任务或流水线</h2>
-      <p>认领单任务；或用连环 <code>base_ref</code> 串行/并行批量过夜跑批，第二天集中审查。</p>
+      <p>单任务直接处理；并行/<code>run-all</code> 默认一任务一子代理，串行由主代理只做调度。</p>
       <code>/ai-workflow 处理 / 串行推进</code>
     </article>
   </div>
@@ -841,7 +841,7 @@
       <div class="actor-badge human" id="actor">人</div>
       <h2 id="step-title">手写任务</h2>
       <div class="meta-tag" id="step-meta">inbox · status: new</div>
-      <p class="detail-desc" id="step-text">复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 默认只展示草稿，你确认后才写入 inbox，仍不领取。</p>
+      <p class="detail-desc" id="step-text">复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 先判并行条件，默认只展示草稿；你确认后才写入 inbox、重建 inbox/GUIDE.md，仍不领取。</p>
       <div class="say-box">
         <span class="say-label">交互示例</span>
         <span class="mono" id="step-say">/ai-workflow task 分析 list/需求列表.md 并拆分任务</span>
@@ -860,7 +860,8 @@
         <h2>主路径</h2>
         <ol>
           <li>复制 TEMPLATE.md 为 <code>inbox/T-20260101-001.md</code>。<code>id</code> 与文件名一致，<code>status: new</code>。验收标准写可执行的命令；没核实的写 TODO。</li>
-          <li>说 <code>/ai-workflow 处理 T-20260101-001</code>。AI 加锁、把文件移到 doing、准备分支 <code>ai/T-20260101-001</code> 的 worktree（位于平级 <code>.ai-worktrees/</code>），并拷贝 <code>.env*</code> 等必要环境配置。</li>
+          <li>从 <code>list/</code> 拆分时先分析并行条件，确认入库后重建 <code>inbox/GUIDE.md</code>：并行组同行，串行任务按行序接力。</li>
+          <li>单任务说 <code>/ai-workflow 处理 T-20260101-001</code>；批量说 <code>/ai-workflow run-all</code>。AI 加锁、准备分支 <code>ai/任务id</code> 的 worktree（位于平级 <code>.ai-worktrees/</code>），并拷贝 <code>.env*</code> 等必要环境配置。</li>
           <li>AI 只读探索，不改业务代码。没有重要歧义就直接实施。</li>
           <li>AI 只在 worktree 里改代码，把命令、目录、退出码、结果写入「验证记录」。没跑就写「未运行」。<code>risk: high</code> 只出方案，不改代码，送审时不能有 commit。</li>
           <li>工作区干净、验证记录非空后送审，文件进入 review。到这里停止，不合并。</li>
@@ -894,6 +895,7 @@
       <li class="gate"><strong>2. 批准要说出版本</strong><p>只有「批准版本 N」算数，而且只用于从讨论恢复。主路径没有歧义时不需要这一步。</p></li>
       <li class="gate"><strong>3. 审查通过 ≠ 合并</strong><p>通过后 status 是 <code>review_approved</code>，文件留在 review；若审查不通过则转为 <code>blocked</code> 退回 inbox。</p></li>
       <li class="gate"><strong>4. 人工合并才归档</strong><p><code>merged_commit</code> 必须在目标分支上。squash / rebase 不能用 sha 证明内容相同，必须写明。</p></li>
+      <li class="gate"><strong>5. 批量默认派子代理</strong><p>并行与 <code>run-all</code> 一任务一子代理；串行时主代理只调度。子代理默认继承主代理模型。</p></li>
     </ol>
   </div>
 
@@ -905,7 +907,7 @@
     <div class="dirs">
       <article class="dir">
         <h3>inbox</h3>
-        <p><code>new</code> 可领取。<code>HISTORY.md</code> 全局索引防重名。<code>list/</code> 放清单（拆完入 <code>list/archive/</code>）。</p>
+        <p><code>new</code> 可领取。<code>GUIDE.md</code> 是常驻任务池顺序，只重建不累加。<code>list/</code> 放清单（拆完入 <code>list/archive/</code>）。</p>
       </article>
       <article class="dir doing">
         <h3>doing</h3>
@@ -942,8 +944,9 @@
       <section>
         <h2>黄金流与夜间跑批</h2>
         <ol>
-          <li><strong>白天规划</strong>：需求放 <code>list/</code> 或随手记入 <code>list/buglist.md</code>，聊透方案后拆入 <code>inbox/</code>。</li>
-          <li><strong>串行连环 Worktree 跑批</strong>：下班前执行 <code>/ai-workflow 串行推进</code>，Task 1 送审后 Task 2 自动基于其分支递进开发；主分支 <code>main</code> 纯净安全。</li>
+          <li><strong>白天规划</strong>：需求放 <code>list/</code> 或随手记入 <code>list/buglist.md</code>，先判并行条件，拆入 <code>inbox/</code> 并重建 <code>GUIDE.md</code>。</li>
+          <li><strong>串行跑批（默认）</strong>：执行 <code>/ai-workflow run-all</code>。主代理只调度，一任务一子代理；前一个送审后再接力下一个。</li>
+          <li><strong>并行跑批</strong>：执行 <code>/ai-workflow 并行 T-xxx ...</code>，默认直接派子代理；不满足并行条件就降级串行。</li>
           <li><strong>清晨集中验收</strong>：第二天上班统一在 <code>review/</code> 中审查合并，一键 <code>/ai-workflow archive</code> 归档清理。</li>
         </ol>
       </section>
@@ -975,7 +978,7 @@
   var steps = {
     new: {
       actor: "人", tone: "human", dir: "inbox", status: "new", title: "手写任务",
-      text: "复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 默认只展示草稿，你确认后才写入 inbox，仍不领取。",
+      text: "复制 TEMPLATE.md，至少写 id、title、status: new、risk、背景和验收标准。也可以把清单放进 list/，用 /ai-workflow task 拆分。AI 先判并行条件，默认只展示草稿；你确认后才写入 inbox、重建 inbox/GUIDE.md，仍不领取。",
       say: "/ai-workflow task 分析 list/需求列表.md 并拆分任务"
     },
     claim: {

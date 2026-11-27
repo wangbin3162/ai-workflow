@@ -1,6 +1,6 @@
 ---
 name: ai-workflow
-description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG、guide.html、list/buglist.md 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，guide.html 只是流转图解，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow bugcheck 检索 list/buglist.md 结合代码拆分低风险 bug 任务入 inbox 并标记；用 /ai-workflow bugfix 自动分析未处理 bug、智能归并同模块问题并一键批量推进送审；用 /ai-workflow 加提示词领取单任务或批量串行/并行推进任务包，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并；用 /ai-workflow archive 批量归档已完成任务并清理 worktree/分支。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「bugcheck / 检查 bug 清单」「bugfix / 自动修 bug」「串行/并行推进任务包」「按任务池做一个任务」「用 worktree 让 agent 跑任务」「归档清理」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
+description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在目标项目安全初始化 .ai-workflow/（生成 README、TEMPLATE、CONFIG、guide.html、inbox/GUIDE.md、list/buglist.md 和 inbox/doing/review/done/list 五个目录，项目配置独立放 CONFIG.md，guide.html 只是流转图解，不生成脚本、不碰 AGENTS.md / CLAUDE.md / docs / .gitignore，可重复执行）；用 /ai-workflow task 按 TEMPLATE 整理用户手写任务，或分析 list/ 里的任务列表拆分任务，先判定并行条件并重建 inbox/GUIDE.md 任务池顺序（默认只出草稿，不自动建任务、不实现）；用 /ai-workflow bugcheck 检索 list/buglist.md 结合代码拆分低风险 bug 任务入 inbox 并标记；用 /ai-workflow bugfix 自动分析未处理 bug、智能归并同模块问题并一键批量推进送审；用 /ai-workflow 加提示词领取单任务或批量串行/并行推进任务包，并行与 run-all 默认派子代理执行，串行时主代理只做调度、一任务一子代理，子代理默认继承主代理模型，由 AI 直接操作任务文件和 git，先只读探索，有歧义进入 needs-discussion 等用户补方案并明确批准，然后实施、验证、送人工审查，绝不自动合并；用 /ai-workflow archive 批量归档已完成任务并清理 worktree/分支与任务池指南。用户说「初始化 AI 工作流 / 任务池 / ai-workflow / ai-loop / 让 AI 领任务」「新增任务 / 拆任务」「bugcheck / 检查 bug 清单」「bugfix / 自动修 bug」「串行/并行推进任务包」「按任务池做一个任务」「用 worktree 让 agent 跑任务」「归档清理」，或提到旧技能 ai-loop-init / ai-loop-task 时，都使用本技能。
 ---
 
 # ai-workflow — 单一技能入口
@@ -9,11 +9,11 @@ description: 唯一的 AI 任务池工作流入口。用 /ai-workflow init 在�
 
 | 指令 / 提示词 | 模式 | 做什么 |
 | --- | --- | --- |
-| `/ai-workflow init`、「初始化任务池」 | **初始化** | 生成目标项目 `.ai-workflow/`（README、TEMPLATE、CONFIG、guide.html、list/buglist.md 与五个目录） |
-| `/ai-workflow task`、「新增/拆分任务」 | **整理任务** | 按 TEMPLATE 整理任务草稿；或分析 `list/` 里的清单拆分任务；默认不写 inbox |
+| `/ai-workflow init`、「初始化任务池」 | **初始化** | 生成目标项目 `.ai-workflow/`（README、TEMPLATE、CONFIG、guide.html、inbox/GUIDE.md、list/buglist.md 与五个目录） |
+| `/ai-workflow task`、「新增/拆分任务」 | **整理任务** | 按 TEMPLATE 整理草稿；先分析并行/串行条件，确认入库时写入任务并重建 `inbox/GUIDE.md`；默认不写 inbox |
 | `/ai-workflow bugcheck`、「检查 bug 清单」 | **Bug 拆分** | 检索 `list/buglist.md` 结合代码拆分低风险 bug 任务入 inbox，并在 buglist 中标记已拆分项 |
 | `/ai-workflow bugfix`、「自动修复 bug」 | **Bug 收割** | 自动读取未处理 bug，同模块智能归并，一键拆分并启动批量自动推进送审（适合下班前收割） |
-| `/ai-workflow 处理 T-xxx` / `串行/并行推进任务包` | **执行任务** | 单任务领取，或以连环 `base_ref` 串行流水线 / 独立并发推进任务包；探索 → 讨论/批准 → 验证 → 送审 |
+| `/ai-workflow 处理 T-xxx` / `串行/并行推进任务包` | **执行任务** | 单任务直接执行；并行与 `run-all` 默认一任务一子代理，串行由主代理只做调度；探索 → 讨论/批准 → 验证 → 送审 |
 | `/ai-workflow archive`、「归档清理」 | **归档清理** | 整理 `done/` 里的已完成任务，批量清理对应的 `.ai-worktrees/` 与已合并分支 |
 
 旧入口 `ai-loop-init` / `ai-loop-task` 不再提供；旧 `.ai/` 与旧脚本不会被调用，也不自动迁移。
@@ -106,19 +106,44 @@ bash <skill-dir>/scripts/verify.sh <目标>
 
 1. 读 `.ai-workflow/TEMPLATE.md`、`HISTORY.md` 和 README 的「任务模板与任务列表」「目录与状态」。
 2. **防重名与序号自增**：新建或拆分任务前，**必须先查阅 `.ai-workflow/HISTORY.md`**，提取当天已有编号 `T-YYYYMMDD-xxx` 的最大序号（如已有 002 则新任务从 003 递增），彻底避免 ID 和 Git 分支重名冲突。并在 `HISTORY.md` 当天日期下同步插入任务记录。
-3. 按模板起草；用户没说拆成几条就不要拆。
-4. `id` 与文件名一致，`status: new`；`risk` 拿不准写 `high`。
-5. 验收标准只写已核实的命令或可观察步骤；没核实过的写 `TODO:`。
-6. 复杂需求先讨论，把完整方案写进「## 方案」。
+3. **先分析并行条件，再给出任务顺序**。只有同时满足以下条件才标 `execution: parallel`：
+   - 任务之间没有前后依赖，或只依赖同一已完成基线；
+   - 没有同一代码文件的写冲突，也没有共享可变模块、接口、数据库迁移、配置或测试夹具；
+   - 各自能在独立 worktree 中验证，失败不会阻塞另一任务的判断；
+   - 任何一项不确定、需要改同一文件、或只是“看起来差不多”，一律标 `execution: serial`。
+   并行任务按阶段给同一 `parallel_group`（如 `P1`）；串行顺序以 `inbox/GUIDE.md` 的行序为准。
+4. 按模板起草；用户没说拆成几条就不要拆。
+5. `id` 与文件名一致，`status: new`；`risk` 拿不准写 `high`；`execution` 默认 `serial`。
+6. 验收标准只写已核实的命令或可观察步骤；没核实过的写 `TODO:`。
+7. 复杂需求先讨论，把完整方案写进「## 方案」。
+8. 草稿阶段同时给出一句执行摘要，例如：
+   `T-...-001～T-...-003 可并行；T-...-004 → T-...-005 串行。`
 
 **分析 `list/` 拆分任务**：
 
 - 读 `.ai-workflow/list/<名字>.md`，按 TEMPLATE 拆成一组任务草稿；
 - 给出标题、范围、验收标准、risk、依赖顺序；
 - 默认只展示拆分结果，不写 inbox；
-- 用户明确确认后，才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不认领、不实现；
+- 用户明确确认后，才逐条写入 `.ai-workflow/inbox/<id>.md`，同时重建 `.ai-workflow/inbox/GUIDE.md`，仍不认领、不实现；
 - **原清单自动归档**：确认写入 `inbox/` 后，原需求清单文件自动移入 `.ai-workflow/list/archive/<原文件名>`，保持 `list/` 根目录只保留待拆分的活跃清单；
 - 不覆盖已有任务文件。
+
+**任务池指南（`inbox/GUIDE.md`）**：
+
+- 固定路径 `.ai-workflow/inbox/GUIDE.md`，不是任务文件，不参与领取和状态统计。
+- 只记录尚未进入 `done/` 的任务，行序就是执行顺序。格式：
+
+  ```markdown
+  ## 当前顺序
+
+  1. [并行 P1] T-YYYYMMDD-001
+  2. [并行 P1] T-YYYYMMDD-002
+  3. [串行] T-YYYYMMDD-003
+  ```
+
+- 入库前先扫描 `inbox/`、`doing/`、`review/` 中所有未完成任务，与本次新任务合并后**整体重建**指南；保持已有未完成任务的相对顺序，不重复 ID。
+- 任务进入 `done/` 或归档后，从指南移除；任务全部完成后只把当前顺序和摘要清空为“暂无未完成任务”，文件必须保留。
+- 指南只保存当前顺序：不追加历史、不按批次累加、不跨批次保留已完成任务。
 
 **Bug 清单拆分（`/ai-workflow bugcheck`）**：
 
@@ -133,7 +158,8 @@ bash <skill-dir>/scripts/verify.sh <目标>
 - 读取 `list/buglist.md` 中的所有待处理项；
 - **智能归并**：若多条 Bug 涉及同一模块或相同文件，自动归并为一个任务，杜绝后续文件交叉冲突；不同模块拆为独立任务；
 - 自动生成任务写入 `inbox/`，并同步更新 `buglist.md`；
-- 立即启动自动批量推进执行（见模式三），在专属 worktree 中修复、运行测试验证，并一并移交至 `review/`。
+- 同时按并行条件重建 `inbox/GUIDE.md`；
+- 立即启动自动批量推进执行（见模式三），默认串行流水线、一任务一子代理，在专属 worktree 中修复、运行测试验证，并一并移交至 `review/`。
 
 ---
 
@@ -215,20 +241,61 @@ bash <skill-dir>/scripts/verify.sh <目标>
 无法继续或人工拒绝：`status: blocked`，任务移到 `inbox/`，记录原因，删除锁，保留 worktree 和 diff。
 重新入池由用户补充信息后改 `status: new`。
 
-### 11. 批量推进任务包（串行流水线 vs 并行并发）
+### 11. 批量推进任务包（自动子代理调度）
 
-用户输入 `/ai-workflow 串行推进 / 并行推进` 或 `run-all --serial / --parallel` 时：
+#### 11.1 触发与默认行为
 
-1. **串行连环 Worktree 模式（推荐，适合日积月累过夜跑批）**：
-   - Task 1 从基准分支（如 `main`）拉出分支 `ai/T-1`，在 `.ai-worktrees/T-1/` 中执行、验证并送入 `review/`；
-   - Task 2 自动以 Task 1 分支为基准（`base_ref: ai/T-1`）拉出 `ai/T-2`，在 `.ai-worktrees/T-2/` 中继承前序成果继续开发并送审；
-   - 依次层层递进，直至任务包完成。
-   - **核心收益**：`main` 分支在跑批期间保持 100% 干净；第二天用户统一在 `review/` 中集中审查与合并。
-2. **并行并发模式（适合解耦的无交叉任务）**：
-   - 仅当分析确认多个任务属于完全独立的模块且无文件重合时使用；
-   - 各任务分配独立的 worktree 并发执行并分别送审。
-3. **遇到歧义的容错处理**：
-   - 跑批过程中若某个任务出现未决歧义，该任务自动转为 `needs-discussion` 退回 `inbox/` 并释放锁，其余不依赖它的任务继续推进，绝不全线崩溃。
+- 并行触发：`并行推进`、`并行 T-... T-...`、`挑并行任务执行`、`run-all --parallel`。
+- 串行触发：`串行推进`、`推进全部任务`、`串行全部任务`、`按 GUIDE 跑批`、`run-all`、`run-all --serial`。
+- 用户不需要额外提醒“开子代理”。并行与 `run-all` **默认启动子代理**。
+- 单任务 `/ai-workflow 处理 T-xxx` 默认由当前代理直接执行；只有用户要求或该任务属于批量调度时才派子代理。
+- `run-all` / `推进全部任务` / `串行全部任务` 按 `inbox/GUIDE.md` 行序**全部串行**，不会自动把并行组改为并发。
+- 需要并行时必须由用户明确说“并行 T-... …”或 `run-all --parallel`，并通过 11.2 的并行检查。
+
+#### 11.2 并行任务
+
+- 仅在用户明确要求并行时进入本模式。读取 `inbox/GUIDE.md`，只选择 `execution: parallel` 且 `parallel_group` 相同的可执行任务；若用户指定 ID，再按用户范围过滤。
+- 重新核验并行条件：无依赖、无同文件写冲突、无共享可变接口/迁移/配置/夹具、可独立验证。任一不满足就降级为串行并向用户说明，不能强行并发。
+- 每个任务派一个子代理，各自按模式三完成领取、探索、实施、验证、送审；主代理只负责并发派发、收集简报和汇总，不读代码 diff。
+- 同一并行组全部结束后，再进入下一并行组或串行阶段。
+
+#### 11.3 串行任务
+
+- 主代理只做调度，不实施任务代码。一个任务一个子代理，串行接力。
+- 按 `inbox/GUIDE.md` 的行序挑选 `status: new` 的任务；每次只派一个子代理，等它返回简报并确认任务状态后再派下一个。
+- Task 1 从任务 `base_ref`、`CONFIG.md` 基准分支或当前 HEAD 开工；Task 2 若没有显式 `base_ref`，主代理在派发前写入 `base_ref: ai/<Task 1 id>`，形成连环 worktree。
+- 子代理返回 `needs-review`/进入 `review/` 后，主代理才继续下一个；遇到 `needs-discussion` 或 `blocked` 时停止该串行链并汇报，不能带着未批准方案接力。
+- 主代理只读取 `inbox/GUIDE.md`、任务 front-matter、子代理简报和必要的 git 状态，不复制完整日志、源码或 diff 到主线上下文。
+
+#### 11.4 子代理模型
+
+- 子代理默认继承主代理模型；调度时不要自行指定其他模型。
+- 用户明确说“子代理用 X 模型”或“T-xxx 用 X 模型”时，优先使用任务 front-matter 的 `agent_model`，否则使用用户本次指定的模型。
+- 宿主不支持子代理或模型选择时，必须如实说明并停在调度前；不得假装已并发，也不得静默改用单会话跑批。
+
+#### 11.5 子代理返回简报
+
+子代理只向主代理返回以下简报，完整过程留在任务文件和 worktree：
+
+```text
+任务: T-...
+结果: needs_review | needs-discussion | blocked
+分支: ai/T-...
+HEAD: <sha>
+review_commit: <sha | none>
+改动: <关键文件，最多 5 个>
+验证: <命令 + 通过/失败>
+未验证/风险: <一行>
+下一步: <进入 review | 等批准 | 需人工处理>
+```
+
+主代理收到简报后核对任务所在目录、`status` 和 `review_commit`；不一致时停止接力并汇报。
+
+#### 11.6 异常与收尾
+
+- 并行组中某个任务进入 `needs-discussion`/`blocked`，只暂停依赖它的后续任务，其他独立任务继续。
+- 串行链中某个任务进入 `needs-discussion`/`blocked`，依赖链停止；用户批准或修复后可从未完成任务继续。
+- 全部完成后由主代理汇总：每个任务的最终状态、分支、commit、验证结果、未验证项；不合并、不 push。
 
 ---
 
@@ -255,9 +322,10 @@ bash <skill-dir>/scripts/verify.sh <目标>
    b. 同步更新 `.ai-workflow/HISTORY.md` 中的对应条目状态为 `[done]` 并追加合并证据；
    c. 如果对应 worktree 存在（`.ai-worktrees/<id>/`），执行 `git worktree remove`；
    d. 如果对应分支存在（`ai/<id>`），且已被合并到 `merge_target`，执行 `git branch -d`；
-   e. 如果锁残留（`.ai-workflow/.locks/<id>/`），删除。
+   e. 如果锁残留（`.ai-workflow/.locks/<id>/`），删除；
+   f. 从 `.ai-workflow/inbox/GUIDE.md` 移除该任务；全部任务清空后只重置指南内容，不删除文件。
 
-4. 汇报：归档了几个任务，清理了几个 worktree/分支，跳过了哪些（条件不满足或分支未合并）。
+4. 汇报：归档了几个任务，清理了几个 worktree/分支，跳过了哪些（条件不满足或分支未合并），指南是否已清空。
 
 ### 安全规则
 
@@ -280,12 +348,13 @@ bash <skill-dir>/scripts/verify.sh <目标>
 ## 文件
 
 - `scripts/detect.sh` — 只读侦察
-- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE、CONFIG、guide.html + 五目录）
+- `scripts/install.sh` — 计划 / 幂等初始化（README、TEMPLATE、CONFIG、guide.html、inbox/GUIDE.md + 五目录）
 - `scripts/verify.sh` — 结构验证
 - `assets/README.md` — 目标 `.ai-workflow/` 的说明与执行规则
 - `assets/TEMPLATE.md` — 目标 `.ai-workflow/` 的任务模板
 - `assets/CONFIG.md` — 目标 `.ai-workflow/` 的项目配置模板（init 预填当前分支）
 - `assets/guide.html` — 目标 `.ai-workflow/` 的流转图解（执行规则仍以 README 为准）
+- `assets/GUIDE.md` — 目标 `.ai-workflow/inbox/GUIDE.md` 的任务池顺序模板
 - `references/design.md` — 设计原因与边界
 - `references/legacy-ai-loop-task.md` — 旧任务整理入口归档（不是技能入口）
 - `evals/evals.json` — 测试用例

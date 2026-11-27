@@ -43,6 +43,8 @@ ok "生成 TEMPLATE.md" test -f "$R/.ai-workflow/TEMPLATE.md"
 ok "生成 CONFIG.md" test -f "$R/.ai-workflow/CONFIG.md"
 ok "生成 guide.html" test -s "$R/.ai-workflow/guide.html"
 ok "生成 HISTORY.md" test -s "$R/.ai-workflow/HISTORY.md"
+ok "生成 inbox/GUIDE.md" test -s "$R/.ai-workflow/inbox/GUIDE.md"
+ok "GUIDE 是 execution-guide-v1" grep -q 'ai-workflow:execution-guide-v1' "$R/.ai-workflow/inbox/GUIDE.md"
 ok "生成 inbox/doing/review/done/list" test -d "$R/.ai-workflow/inbox" -a -d "$R/.ai-workflow/doing" -a -d "$R/.ai-workflow/review" -a -d "$R/.ai-workflow/done" -a -d "$R/.ai-workflow/list"
 ok "生成 list/buglist.md" test -s "$R/.ai-workflow/list/buglist.md"
 ok "没有 scripts/" test ! -e "$R/.ai-workflow/scripts"
@@ -64,10 +66,13 @@ ok "guide 不引用外部资源" bash -c "! grep -E 'src=\"https?:|href=\"https?
 ok "CONFIG 预填当前分支 main" grep -q '基准分支.*main' "$R/.ai-workflow/CONFIG.md"
 ok "CONFIG 保留测试命令 TODO" grep -q 'TODO:' "$R/.ai-workflow/CONFIG.md"
 ok "README 说明 list 拆分" grep -q '从 list/ 拆分任务' "$R/.ai-workflow/README.md"
+ok "README 说明并行条件与 GUIDE" bash -c "grep -q '并行条件' '$R/.ai-workflow/README.md' && grep -q 'inbox/GUIDE.md' '$R/.ai-workflow/README.md'"
+ok "README 说明子代理调度" bash -c "grep -q '一任务一子代理' '$R/.ai-workflow/README.md' && grep -q '主代理只做调度' '$R/.ai-workflow/README.md'"
 ok "README 含平级 worktree 说明" grep -q '\.ai-worktrees' "$R/.ai-workflow/README.md"
 ok "README 含归档清理说明" grep -q '归档清理' "$R/.ai-workflow/README.md"
 ok "TEMPLATE 区分用户填写与 AI 维护" grep -q '用户填写' "$R/.ai-workflow/TEMPLATE.md"
 ok "TEMPLATE 含任务 front-matter 与验证区" bash -c "grep -q '^id: T-YYYYMMDD-001' '$R/.ai-workflow/TEMPLATE.md' && grep -q '^## 验证记录' '$R/.ai-workflow/TEMPLATE.md'"
+ok "TEMPLATE 含调度字段" bash -c "grep -q '^execution: serial' '$R/.ai-workflow/TEMPLATE.md' && grep -q '^parallel_group:' '$R/.ai-workflow/TEMPLATE.md' && grep -q '^agent_model:' '$R/.ai-workflow/TEMPLATE.md'"
 ok "README 含方案 sha256 命令" grep -q 'shasum -a 256' "$R/.ai-workflow/README.md"
 ok "README 含审查不等于合并" grep -q '人工审查批准（不等于合并）' "$R/.ai-workflow/README.md"
 ok "README 含 worktree 复用检查" grep -q 'git worktree list --porcelain' "$R/.ai-workflow/README.md"
@@ -82,18 +87,22 @@ echo "B. 幂等：重复初始化保留 README/TEMPLATE/CONFIG/guide.html 与用
 before="$(hash "$R/.ai-workflow/README.md")"
 config_before="$(hash "$R/.ai-workflow/CONFIG.md")"
 guide_before="$(hash "$R/.ai-workflow/guide.html")"
+inbox_guide_before="$(hash "$R/.ai-workflow/inbox/GUIDE.md")"
 install_apply
 ok "重复 apply 退出码 0" test $? -eq 0
 ok "README 内容未变" test "$(hash "$R/.ai-workflow/README.md")" = "$before"
 ok "CONFIG 内容未变" test "$(hash "$R/.ai-workflow/CONFIG.md")" = "$config_before"
 ok "guide 内容未变" test "$(hash "$R/.ai-workflow/guide.html")" = "$guide_before"
+ok "inbox/GUIDE 内容未变" test "$(hash "$R/.ai-workflow/inbox/GUIDE.md")" = "$inbox_guide_before"
 ok "重复 apply 输出 SKIP" grep -q 'SKIP' "$TMP/apply.log"
 printf '\n<!-- 用户补充说明 -->\n' >> "$R/.ai-workflow/README.md"
 printf '\n<!-- 用户改过图解 -->\n' >> "$R/.ai-workflow/guide.html"
+printf '\n<!-- 用户改过任务池指南 -->\n' >> "$R/.ai-workflow/inbox/GUIDE.md"
 install_apply
 ok "用户修改 README 后重复 apply 不覆盖" test $? -eq 0
 ok "用户修改保留" grep -q '用户补充说明' "$R/.ai-workflow/README.md"
 ok "用户修改 guide 后不覆盖" grep -q '用户改过图解' "$R/.ai-workflow/guide.html"
+ok "用户修改 GUIDE 后不覆盖" grep -q '用户改过任务池指南' "$R/.ai-workflow/inbox/GUIDE.md"
 
 echo "C. 未标记的 README 冲突时不写任何文件"
 new_repo; mkdir -p "$R/.ai-workflow"; printf '# 用户自己的说明\n' > "$R/.ai-workflow/README.md"
@@ -137,24 +146,32 @@ new_repo; install_apply >/dev/null 2>&1
 rm "$R/.ai-workflow/guide.html"
 verify
 ok "缺 guide.html 时 verify 失败" test $? -ne 0
+new_repo; install_apply >/dev/null 2>&1
+rm "$R/.ai-workflow/inbox/GUIDE.md"
+verify
+ok "缺 inbox/GUIDE.md 时 verify 失败" test $? -ne 0
 
 echo "G. 单一技能入口与最小资产"
 ok "skills 下只有一个 SKILL.md" test "$(find "$BASE/skills" -name SKILL.md | wc -l | tr -d ' ')" = 1
 ok "入口名为 ai-workflow" grep -q '^name: ai-workflow' "$SKILL/SKILL.md"
 ok "没有 ai-loop-task/ai-loop-init 技能目录" test ! -d "$BASE/skills/ai-loop-task" -a ! -d "$BASE/skills/ai-loop-init"
-ok "assets 是 README/TEMPLATE/CONFIG/guide.html/buglist.md/HISTORY.md" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 6
-ok "assets/README.md、TEMPLATE.md、CONFIG.md、guide.html、buglist.md、HISTORY.md 存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html" -a -f "$SKILL/assets/buglist.md" -a -f "$SKILL/assets/HISTORY.md"
+ok "assets 是 README/TEMPLATE/CONFIG/guide.html/GUIDE.md/buglist.md/HISTORY.md" test "$(find "$SKILL/assets" -type f | wc -l | tr -d ' ')" = 7
+ok "assets 必需文件存在" test -f "$SKILL/assets/README.md" -a -f "$SKILL/assets/TEMPLATE.md" -a -f "$SKILL/assets/CONFIG.md" -a -f "$SKILL/assets/guide.html" -a -f "$SKILL/assets/GUIDE.md" -a -f "$SKILL/assets/buglist.md" -a -f "$SKILL/assets/HISTORY.md"
+ok "SKILL 说明默认子代理与模型继承" bash -c "grep -q '一任务一子代理' '$SKILL/SKILL.md' && grep -q '子代理默认继承主代理模型' '$SKILL/SKILL.md'"
 ok "scripts 包含 detect/install/verify/check/status/archive" test -f "$SKILL/scripts/detect.sh" -a -f "$SKILL/scripts/install.sh" -a -f "$SKILL/scripts/verify.sh" -a -f "$SKILL/scripts/check.sh" -a -f "$SKILL/scripts/status.sh" -a -f "$SKILL/scripts/archive.sh"
 
-echo "H. 已有 v3 缺少 guide.html 时只补页面"
+echo "H. 已有 v3 缺少 guide.html / inbox/GUIDE.md 时只补文件"
 new_repo
 install_apply
 rm "$R/.ai-workflow/guide.html"
+rm "$R/.ai-workflow/inbox/GUIDE.md"
 readme_before="$(hash "$R/.ai-workflow/README.md")"
 install_apply
 ok "补回 guide.html" test -s "$R/.ai-workflow/guide.html"
+ok "补回 inbox/GUIDE.md" test -s "$R/.ai-workflow/inbox/GUIDE.md"
 ok "补页面时 README 不变" test "$(hash "$R/.ai-workflow/README.md")" = "$readme_before"
-ok "补页面输出 CREATE guide.html" grep -q 'CREATE.*guide.html' "$TMP/apply.log"
+ok "补文件输出 CREATE guide.html" grep -q 'CREATE.*guide.html' "$TMP/apply.log"
+ok "补文件输出 CREATE inbox/GUIDE.md" grep -q 'CREATE.*inbox/GUIDE.md' "$TMP/apply.log"
 ok "不再保留 archive/ 历史目录" test ! -e "$BASE/archive"
 
 echo "I. 运行时一致性检查 check.sh"
@@ -171,6 +188,7 @@ ok "不一致任务 check.sh 发现 FAIL" grep -q 'FAIL.*status-目录一致性'
 echo "J. 任务总览 status.sh"
 new_repo; install_apply >/dev/null 2>&1
 ok "无任务时 status.sh 输出暂无任务" bash -c "bash '$SKILL/scripts/status.sh' '$R' | grep -q '暂无任务'"
+ok "status.sh 不把 GUIDE.md 当任务" bash -c "bash '$SKILL/scripts/status.sh' '$R' | grep -q '暂无任务'"
 cp "$R/.ai-workflow/TEMPLATE.md" "$R/.ai-workflow/inbox/T-20260101-001.md"
 ok "有任务时 status.sh 统计正确" bash -c "bash '$SKILL/scripts/status.sh' '$R' | grep -q 'inbox:.*1 个任务'"
 
@@ -188,6 +206,16 @@ EOF
 mkdir -p "$R/.ai-worktrees/T-20260101-001"
 git -C "$R" branch ai/T-20260101-001 main
 mkdir -p "$R/.ai-workflow/.locks/T-20260101-001"
+cat > "$R/.ai-workflow/inbox/GUIDE.md" << 'EOF'
+<!-- ai-workflow:execution-guide-v1 -->
+# 任务池执行指南
+
+执行摘要：T-20260101-001 串行。
+
+## 当前顺序
+
+1. [串行] T-20260101-001
+EOF
 
 bash "$SKILL/scripts/archive.sh" "$R" --plan >"$TMP/archive_plan.log" 2>&1
 ok "archive --plan 不移动文件" test -f "$R/.ai-workflow/done/T-20260101-001.md"
@@ -198,6 +226,63 @@ ok "archive --apply 移动任务到按日 archive/YYYYMMDD/" test -f "$R/.ai-wor
 ok "archive 移除 done 中原任务" test ! -e "$R/.ai-workflow/done/T-20260101-001.md"
 ok "archive 清理残留锁" test ! -e "$R/.ai-workflow/.locks/T-20260101-001"
 ok "archive 删除已合并分支" bash -c "! git -C '$R' show-ref --verify --quiet refs/heads/ai/T-20260101-001"
+ok "archive 后清空 GUIDE 但保留文件" bash -c "test -f '$R/.ai-workflow/inbox/GUIDE.md' && grep -q '暂无未完成任务' '$R/.ai-workflow/inbox/GUIDE.md' && ! grep -q 'T-20260101-001' '$R/.ai-workflow/inbox/GUIDE.md'"
+
+echo "L. check.sh 校验任务池指南"
+new_repo; install_apply >/dev/null 2>&1
+cp "$R/.ai-workflow/TEMPLATE.md" "$R/.ai-workflow/inbox/T-20260101-001.md"
+sed -i.bak 's/id: T-YYYYMMDD-001/id: T-20260101-001/' "$R/.ai-workflow/inbox/T-20260101-001.md"
+cat > "$R/.ai-workflow/inbox/GUIDE.md" << 'EOF'
+<!-- ai-workflow:execution-guide-v1 -->
+# 任务池执行指南
+
+## 当前顺序
+
+1. [串行] T-20260101-001
+2. [串行] T-20260101-001
+3. [串行] T-20260101-999
+EOF
+bash "$SKILL/scripts/check.sh" "$R" >"$TMP/check_guide_fail.log" 2>&1 || true
+ok "check.sh 发现 GUIDE 重复 ID" grep -q 'FAIL.*任务池指南.*重复' "$TMP/check_guide_fail.log"
+ok "check.sh 发现 GUIDE 引用已不在池任务" grep -q 'FAIL.*任务池指南.*T-20260101-999' "$TMP/check_guide_fail.log"
+
+echo "M. archive.sh 部分归档后重建 GUIDE"
+new_repo; install_apply >/dev/null 2>&1
+cat << 'EOF' > "$R/.ai-workflow/done/T-20260101-001.md"
+---
+id: T-20260101-001
+status: done
+merge_target: main
+merged_commit: 1234567
+merged_by: user
+---
+EOF
+cp "$R/.ai-workflow/TEMPLATE.md" "$R/.ai-workflow/inbox/T-20260101-002.md"
+sed -i.bak 's/id: T-YYYYMMDD-001/id: T-20260101-002/' "$R/.ai-workflow/inbox/T-20260101-002.md"
+cat > "$R/.ai-workflow/inbox/GUIDE.md" << 'EOF'
+<!-- ai-workflow:execution-guide-v1 -->
+# 任务池执行指南
+
+执行摘要：T-20260101-001 → T-20260101-002 串行。
+
+## 当前顺序
+
+1. [串行] T-20260101-001
+2. [串行] T-20260101-002
+EOF
+bash "$SKILL/scripts/archive.sh" "$R" --apply >"$TMP/archive_partial.log" 2>&1
+ok "部分归档后 GUIDE 移除已归档 ID" bash -c "! grep -q 'T-20260101-001' '$R/.ai-workflow/inbox/GUIDE.md'"
+ok "部分归档后 GUIDE 保留未完成任务" grep -q 'T-20260101-002' "$R/.ai-workflow/inbox/GUIDE.md"
+ok "部分归档后 GUIDE 重排行序" grep -q '^1\. \[串行\] T-20260101-002' "$R/.ai-workflow/inbox/GUIDE.md"
+ok "部分归档后 GUIDE 重算摘要" grep -q '执行摘要：\[串行\]: T-20260101-002' "$R/.ai-workflow/inbox/GUIDE.md"
+
+echo "N. 旧 v3 文档缺少新调度说明时保持兼容"
+new_repo; install_apply >/dev/null 2>&1
+sed -i.bak '/并行条件/d' "$R/.ai-workflow/README.md"
+sed -i.bak '/^execution: serial/d; /^parallel_group:/d; /^agent_model:/d' "$R/.ai-workflow/TEMPLATE.md"
+verify
+ok "旧 v3 文档缺新说明时 verify 仍通过" test $? -eq 0
+ok "verify 以 WARN 提示旧文档补调度说明" grep -q 'WARN.*旧版 v3' "$TMP/verify.log"
 
 echo
 echo "通过 ${PASS}，失败 ${FAIL}"

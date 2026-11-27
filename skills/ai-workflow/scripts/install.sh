@@ -9,6 +9,7 @@
 #   .ai-workflow/TEMPLATE.md
 #   .ai-workflow/CONFIG.md       # 基准分支预填当前分支
 #   .ai-workflow/guide.html      # 流转图解；已存在则保留
+#   .ai-workflow/inbox/GUIDE.md  # 任务池顺序指南；常驻，只重建不删除
 #   .ai-workflow/{inbox,doing,review,done,list}/
 #
 # 原则：
@@ -49,6 +50,7 @@ README=".ai-workflow/README.md"
 TEMPLATE=".ai-workflow/TEMPLATE.md"
 CONFIG=".ai-workflow/CONFIG.md"
 GUIDE=".ai-workflow/guide.html"
+INBOX_GUIDE=".ai-workflow/inbox/GUIDE.md"
 BUGLIST=".ai-workflow/list/buglist.md"
 HISTORY=".ai-workflow/HISTORY.md"
 DIRS=(inbox doing review done list)
@@ -86,6 +88,11 @@ if [ -f "$GUIDE" ]; then
   say SKIP "${GUIDE}（已存在，保留用户内容）"
 else
   say CREATE "$GUIDE"
+fi
+if [ -f "$INBOX_GUIDE" ]; then
+  say SKIP "${INBOX_GUIDE}（已存在，保留当前任务池顺序）"
+else
+  say CREATE "$INBOX_GUIDE"
 fi
 if [ -f "$BUGLIST" ]; then
   say SKIP "${BUGLIST}（已存在，保留用户内容）"
@@ -129,6 +136,9 @@ fi
 if [ ! -f "$GUIDE" ]; then
   cp "$A/guide.html" "$GUIDE"
 fi
+if [ ! -f "$INBOX_GUIDE" ]; then
+  cp "$A/GUIDE.md" "$INBOX_GUIDE"
+fi
 if [ ! -f "$BUGLIST" ]; then
   cp "$A/buglist.md" "$BUGLIST"
 fi
@@ -139,5 +149,5 @@ fi
 say DONE "初始化完成：只写 .ai-workflow/。未执行任何 git add / commit。"
 say NEXT "用浏览器打开 .ai-workflow/guide.html 看流转；执行规则以 README.md 为准"
 say NEXT "1) 打开 .ai-workflow/CONFIG.md，补测试 / 构建命令与依赖安装"
-say NEXT "2) 复制 .ai-workflow/TEMPLATE.md 到 inbox/ 手写任务；列表/方案可放 list/"
+say NEXT "2) 复制 .ai-workflow/TEMPLATE.md 到 inbox/ 手写任务；列表/方案可放 list/；顺序写入 inbox/GUIDE.md"
 say NEXT "3) 在 Claude/T3 会话里用 /ai-workflow 加提示词领取或拆分任务"

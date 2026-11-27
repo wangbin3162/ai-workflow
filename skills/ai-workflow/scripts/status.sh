@@ -20,7 +20,7 @@ for dir in inbox doing review done; do
   status_list=""
 
   if [ -d "$dir_path" ]; then
-    for f in "$dir_path"/*.md; do
+    for f in "$dir_path"/T-*.md; do
       [ -f "$f" ] || continue
       count=$((count+1))
       s="$(fm_status "$f")"

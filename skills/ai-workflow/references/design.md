@@ -1,6 +1,6 @@
 # 设计说明
 
-## 为什么生成 README/TEMPLATE/CONFIG/guide.html + 五个目录
+## 为什么生成 README/TEMPLATE/CONFIG/guide.html/inbox/GUIDE.md + 五个目录
 
 - 初始化产物越少，用户越容易找到入口。执行规则只放 README，任务模板放 TEMPLATE.md，
   项目配置放 CONFIG.md。`guide.html` 只画流转和操作，避免再写一份规则；冲突时以 README 为准。
@@ -10,6 +10,9 @@
   不再单独建目录，状态写在 front-matter 里。
 - 增加 `list/` 作为临时输入区：用户放任务列表/方案草稿，`/ai-workflow task` 分析后按 TEMPLATE
   拆分成任务草稿；默认不写 inbox，用户确认后才落盘。
+- 增加 `inbox/GUIDE.md` 作为常驻任务池顺序：拆分时先判并行条件，再把未完成任务整体重建为
+  并行组和串行链；任务完成归档后移除，全部完成后只清空内容，不删除文件、不累加历史。
+  指南不是任务文件，领取范围仍由任务目录和 `status` 决定。
 - 不再生成 `.gitignore`：是否忽略 `.ai-workflow/` 由项目自己决定，初始化不碰根 `.gitignore`。
 - 不再生成 `config.env`：项目配置独立为 `CONFIG.md`。`init` 预填当前分支，
   初始化会话读取目标 `AGENTS.md` / README / docs / CI，实际验证后填测试命令与依赖安装；
@@ -36,6 +39,8 @@
 - 任务模板分层：TEMPLATE.md 明确区分「用户填写」与「AI 自动维护」，降低手写心智负担。
 - 归档清理支持 `/ai-workflow archive`：可批量整理 done/ 任务到 archive/，安全清理 worktree 与已合并分支。
 - 提供只读辅助脚本（`check.sh`、`status.sh`、`archive.sh`）：作为技能自身的开发与排查工具，不随初始化分发到目标项目。
+- 批量执行默认一任务一子代理：并行按同一 `parallel_group` 派发；串行由主代理只做调度，
+  按指南接力，子代理默认继承主代理模型，主代理只收简报以控制上下文长度。
 - 不自动提交任务状态、不合并、不 push、不删未合并的 worktree/分支。
 
 ## 已知限制
@@ -44,4 +49,5 @@
 - squash/rebase 的内容等价无法用 sha 证明；
 - 没有 `.claude/settings.json` 的 permissions/hook 层护栏；
 - 真实 `claude -p` 未验证，且本工作流不再随初始化分发 runner；
+- 子代理并发数、模型选择和上下文隔离能力取决于宿主 Agent，技能只能约束调度流程，不能保证宿主一定支持；
 - `guide.html` 只负责图解，可能落后于 README。执行以 README 为准。

@@ -16,7 +16,7 @@
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── guide.html     # 流转图解；执行规则以本文件为准
 ├── HISTORY.md     # 任务全局历史与索引（防 ID 碰撞，按日期倒序）
-├── inbox/         # new / needs-discussion / blocked
+├── inbox/         # new / needs-discussion / blocked；GUIDE.md 是任务池顺序指南
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
 ├── done/          # done
@@ -60,8 +60,10 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 
 - `id` 必须与文件名一致，分支固定为 `ai/<id>`。
 - **防重名与序号自增**：新建任务前必须查阅 `HISTORY.md` 当天最大编号，确保 ID 递增（如已有 002 则新任务为 003），绝不与已归档或已执行任务重名；并在 `HISTORY.md` 当日段落下记录。
-- 模板分两部分：前半部分由用户填写（`id`、`title`、`type`、`status`、`risk`、`priority`、`created`、`base_ref`），后半部分由 AI 自动维护，无需手动编辑。
+- 模板分两部分：前半部分由用户填写（`id`、`title`、`type`、`status`、`risk`、`priority`、`created`、`base_ref`、`execution`、`agent_model`），后半部分由 AI 自动维护，无需手动编辑。
 - `risk`：`low` / `high`；缺失或写错按 `high`。`high` 只出方案，不改代码。
+- `execution`：默认 `serial`；只有通过并行检查才写 `parallel`。并行任务由 AI 填 `parallel_group`，如同一 `P1`。
+- `agent_model`：默认空，表示子代理继承主代理模型；用户明确指定某个任务用其他模型时才填写。
 - front-matter 只写 `key: value`，不要写行内注释，值里不要出现 ` #`。
 
 ### 3.2 从 list/ 拆分任务
@@ -70,15 +72,51 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 
 1. 用户把列表写到 `.ai-workflow/list/<名字>.md`；
 2. 在会话里说「/ai-workflow task，分析 list/<名字>.md 并拆分任务」；
-3. AI 只读分析列表，按 `TEMPLATE.md` 给出拆分方案：每条任务的标题、范围、验收标准、risk、
-   依赖顺序；
+3. AI 只读分析列表，**先判定并行条件**，再按 `TEMPLATE.md` 给出拆分方案：每条任务的标题、范围、
+   验收标准、risk、`execution`、依赖顺序；
 4. AI 默认只展示拆分结果，**不自动写 inbox**；
-5. 用户确认后，AI 才逐条写入 `.ai-workflow/inbox/<id>.md`，仍不领取、不实现；
+5. 用户确认后，AI 才逐条写入 `.ai-workflow/inbox/<id>.md`，同时重建
+   `.ai-workflow/inbox/GUIDE.md` 任务池顺序，仍不领取、不实现；
 6. **原清单自动归档**：确认写入 `inbox/` 后，原需求文件自动移入 `.ai-workflow/list/archive/<原文件名>`，保持 `list/` 根目录只保留待拆分的活跃文件。
 
 `list/` 只是输入区，没有状态含义；拆分完成后原清单已归档。
 
-### 3.3 Bug 清单与快速收割（bugcheck 与 bugfix）
+并行判定必须保守，只有同时满足以下条件才标 `execution: parallel`：
+
+- 任务之间没有前后依赖；
+- 不修改同一个代码文件，也不共享可变模块、接口、数据库迁移、配置或测试夹具；
+- 各任务能在独立 worktree 中验证，失败不会影响另一任务的判断；
+- 任何不确定、需要改同一文件、或可能产生逻辑冲突的情况，一律串行。
+
+### 3.3 任务池执行指南（inbox/GUIDE.md）
+
+`.ai-workflow/inbox/GUIDE.md` 是常驻的当前执行顺序，不是任务文件，不参与领取和状态统计。
+
+格式：
+
+```markdown
+# 任务池执行指南
+
+执行摘要：T-20260101-001～T-20260101-003 可并行；T-20260101-004 → T-20260101-005 串行。
+
+## 当前顺序
+
+1. [并行 P1] T-20260101-001
+2. [并行 P1] T-20260101-002
+3. [并行 P1] T-20260101-003
+4. [串行] T-20260101-004
+5. [串行] T-20260101-005
+```
+
+维护规则：
+
+- 拆分任务并确认写入 `inbox/` 时，扫描 `inbox/`、`doing/`、`review/` 中所有未完成任务，与本次新任务合并后**整体重建**指南。
+- 保留已有未完成任务的相对顺序；同一任务 ID 只出现一次，不重复、不追加历史批次。
+- 任务进入 `done/` 或归档后，从指南中移除。
+- 全部任务完成后，只把摘要和当前顺序清空为「暂无未完成任务」，文件永久保留；不删除文件、不保留历史。
+- 指南只表达顺序。实际可领取范围仍由任务状态决定，只有 `inbox/` 里的 `status: new` 可执行。
+
+### 3.4 Bug 清单与快速收割（bugcheck 与 bugfix）
 
 初始化时会在 `.ai-workflow/list/buglist.md` 自动生成开箱即用的 Bug 跟踪池，格式支持手工随手记，也支持外接脚本从禅道、Jira、飞书等自动化同步写入。
 
@@ -90,8 +128,8 @@ cp .ai-workflow/TEMPLATE.md .ai-workflow/inbox/T-20260101-001.md
 - **`/ai-workflow bugfix`（一键合并、拆分并批量自动推进）**：
   1. 检索 `list/buglist.md` 中的未处理条目；
   2. **智能归并**：分析若有多条 Bug 涉及同一模块或相同文件，自动归并为单一任务，杜绝后续文件交叉冲突；不同模块拆为独立任务；
-  3. 自动生成任务写入 `inbox/`，并同步更新 `buglist.md`；
-  4. 立即启动自动批量执行（单任务或串行/并行批处理），在专属 worktree 中修复、运行测试验证，并一并送入 `review/`。
+  3. 自动生成任务写入 `inbox/`，按并行条件重建 `inbox/GUIDE.md`，并同步更新 `buglist.md`；
+  4. 立即启动自动批量执行：默认串行流水线、一任务一子代理，在专属 worktree 中修复、运行测试验证，并一并送入 `review/`。
 
 ## 4. AI 执行流程
 
@@ -245,7 +283,8 @@ approved_note: <用户批准原话>
    - 同步更新 `.ai-workflow/HISTORY.md` 中对应任务状态为 `[done]` 并记录合并证据；
    - 移除对应 worktree（`.ai-worktrees/<id>/`）；
    - 安全删除已合并的分支 `ai/<id>`（`git branch -d`，未合并的不强删）；
-   - 清理残留锁 `.ai-workflow/.locks/<id>/`。
+   - 清理残留锁 `.ai-workflow/.locks/<id>/`；
+   - 从 `.ai-workflow/inbox/GUIDE.md` 移除已归档任务；全部完成后只清空指南，不删除文件。
 4. 不 push、不改远程、不处理非 done 状态的任务。
 
 ## 9. 最佳实践推荐流（黄金工作流）
@@ -257,37 +296,46 @@ approved_note: <用户批准原话>
 1. **主会话（规划与拆分）**：
    - 将需求或方案草稿放入 `.ai-workflow/list/<需求>.md`；
    - 运行 `/ai-workflow task 分析 list/<需求>.md 并拆分任务`；
-   - 审阅拆分草稿（任务范围、验收标准、依赖顺序），确认后由 AI 写入 `.ai-workflow/inbox/`。
-2. **多会话并行（独立执行）**：
-   - 在终端或 T3 中打开 2~3 个独立会话窗口；
-   - 每个窗口直接发送指令：`/ai-workflow 处理 T-xxx`（或「去 inbox 领一个任务」）；
-   - **无需人工手动切换 worktree**：AI 会自动在 `.ai-worktrees/<id>/` 专属目录中完成只读探索、编码和验证；
-   - 遇到有歧义的任务时，该会话直接在当前窗口与你讨论（`needs-discussion`），完全不阻塞其他并行会话。
+   - 审阅拆分草稿（范围、验收标准、并行条件、依赖顺序），确认后由 AI 写入
+     `.ai-workflow/inbox/` 并重建 `inbox/GUIDE.md`。
+2. **按指南执行**：
+   - 并行任务直接说 `/ai-workflow 并行 T-xxx T-xxx`，默认自动派子代理；
+   - 串行任务说 `/ai-workflow run-all` 或「推进全部任务」，主代理只做调度，一任务一子代理；
+   - 需要人工讨论时，子代理把任务转入 `needs-discussion`，主代理不替人批准。
+   - 示例：前 3 个并行任务先执行 `/ai-workflow 并行 T-001 T-002 T-003`；完成后执行
+     `/ai-workflow run-all`，只推进剩余未完成的串行任务。
 3. **主工程统一审查与合并（闭环归档）**：
    - 任务完成后自动移入 `review/`，并释放任务锁；
    - 人工在主工程审查 diff 并执行 `git merge`；
-   - 全部任务完成后，运行 `/ai-workflow archive` 一键自动归档任务文件、删除已合并分支并清理 worktree。
+   - 全部任务完成后，运行 `/ai-workflow archive` 一键自动归档任务文件、删除已合并分支、清理
+     worktree，并清空任务池指南。
 
-### 9.2 并行执行方式建议
+### 9.2 子代理调度规则
 
-- **推荐：多独立会话并行（体验最佳）**：上下文彻底隔离、Token 消耗可控、直面人类做业务决断，最稳健。
-- **推荐：单会话顺次推进（心智负担最小）**：任务量少（2~3 个）或不想开多窗口时，在单会话中逐个认领、送审、合并。
-- **慎用：单会话盲目拉起大量子代理**：极易触发模型 API 速率限制（429），且一旦触发 `needs-discussion` 子代理无法替人做架构决策。
+- 用户说并行、挑并行任务或 `run-all` 时，不需要再提醒“开子代理”，默认直接派发。
+- 并行：同一个 `parallel_group` 的可执行任务一任务一子代理并发执行；主代理只收简报。
+- 串行：主代理只做调度，一任务一子代理接力；前一个送审后再派下一个。
+- `run-all` / “推进全部任务”按指南行序全部串行，不自动把并行组改成并发；并行必须明确要求。
+- 子代理默认继承主代理模型。用户明确指定时，优先读取任务的 `agent_model`，否则使用本次指定模型。
+- 宿主不支持子代理或模型选择时，先说明限制并停在调度前，不能假装并发。
+- 主代理不读源码 diff 和完整日志，只核对 `inbox/GUIDE.md`、任务 front-matter、简报和 git 状态。
 
 ### 9.3 任务包批量推进与夜间跑批模型
 
 对于已在白天规划好方案或拆分好的低风险任务包（如多个小优化、一网打尽的 Bug 列表）：
 
-- **串行推进流水线（Chained Pipeline，最常用）**：
-  - 指令：`/ai-workflow 串行推进` 或 `/ai-workflow run-all --serial`
+- **串行推进流水线（最常用，也是 `run-all` 默认）**：
+  - 指令：`/ai-workflow 串行推进`、`/ai-workflow run-all`、`/ai-workflow 推进全部任务`
   - 机制：
-    1. Task 1 基于基准分支开工，在专属 worktree 修复验证并提交送审；
-    2. Task 2 自动以 Task 1 分支为基准（`base_ref: ai/T-Task1`）开辟下一级 worktree，继承 Task 1 的改动继续实施；
-    3. 依次层层递进，直至全部任务进入 `review/`。
+    1. 主代理读取 `inbox/GUIDE.md` 的行序，只派发 `status: new` 任务；即使行内标了并行组，`run-all` 也只串行；
+    2. 一个任务一个子代理；子代理在专属 worktree 修复验证并提交送审，只回简报；
+    3. Task 2 没有显式 `base_ref` 时，主代理写入 `base_ref: ai/T-Task1`，使其继承 Task 1；
+    4. 前一个进入 `review/` 后才接力下一个；遇到 `needs-discussion`/`blocked` 停止依赖链。
   - **优势**：主分支（`main`）一尘不染，任务成果层层累积。下班前启动，第二天早上你只需在 `review/` 中逐级审查或直接审查最后一级，一次性合并入 `main`。
 - **并行推进并发（Parallel Fan-out）**：
   - 指令：`/ai-workflow 并行推进` 或 `/ai-workflow run-all --parallel`
-  - 机制：针对互相解耦、经分析无文件交叉的独立任务，由主调度器为各任务分配独立 worktree 并发执行。
+  - 机制：只选同一 `parallel_group` 且无依赖、无文件交叉的任务，一任务一子代理并发执行并分别送审。
+  - 若指定任务不满足并行条件，降级为串行并说明原因，不强行并发。
 
 ### 9.4 Bug 与轻量调整敏捷分级策略
 

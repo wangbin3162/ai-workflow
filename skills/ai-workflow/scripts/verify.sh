@@ -8,6 +8,7 @@ ok()   { PASS=$((PASS+1)); printf '  PASS %s\n' "$1"; }
 bad()  { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
 warn() { printf '  WARN %s\n' "$1"; }
 chk()  { local d="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$d"; else bad "$d"; fi; }
+warnchk() { local d="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$d"; else warn "${d}（旧版 v3 文件可保留，建议手动补充）"; fi; }
 
 echo "== 必需结构（全部在 .ai-workflow/ 内）=="
 chk "存在 .ai-workflow/README.md" test -s .ai-workflow/README.md
@@ -15,6 +16,7 @@ chk "存在 .ai-workflow/TEMPLATE.md" test -s .ai-workflow/TEMPLATE.md
 chk "存在 .ai-workflow/CONFIG.md" test -s .ai-workflow/CONFIG.md
 chk "存在 .ai-workflow/guide.html" test -s .ai-workflow/guide.html
 chk "存在 .ai-workflow/HISTORY.md" test -s .ai-workflow/HISTORY.md
+chk "存在 .ai-workflow/inbox/GUIDE.md" test -s .ai-workflow/inbox/GUIDE.md
 chk "存在 .ai-workflow/list/buglist.md" test -s .ai-workflow/list/buglist.md
 for d in inbox doing review done list; do
   chk "存在 .ai-workflow/$d/" test -d ".ai-workflow/$d"
@@ -23,14 +25,18 @@ chk "README 是 v3 初始化文档" bash -c "head -n 1 .ai-workflow/README.md 2>
 chk "CONFIG 是 config-v1 模板" bash -c "head -n 1 .ai-workflow/CONFIG.md 2>/dev/null | grep -q 'ai-workflow:config-v1'"
 chk "guide 是 guide-v1 图解" grep -q 'ai-workflow:guide-v1' .ai-workflow/guide.html
 chk "guide 说明批准与人工合并" bash -c "grep -q 'README.md' .ai-workflow/guide.html && grep -q '批准版本' .ai-workflow/guide.html && grep -q '人工合并' .ai-workflow/guide.html"
+chk "任务池指南是 execution-guide-v1" grep -q 'ai-workflow:execution-guide-v1' .ai-workflow/inbox/GUIDE.md
 
 echo "== README 内容 =="
 chk "说明状态与目录" grep -q '^## 1\. 目录与状态' .ai-workflow/README.md
 chk "指向 CONFIG.md" grep -q 'CONFIG.md' .ai-workflow/README.md
 chk "说明任务模板文件" grep -q 'TEMPLATE.md' .ai-workflow/README.md
 chk "说明从 list/ 拆分任务" bash -c "grep -q '从 list/ 拆分任务' .ai-workflow/README.md"
+warnchk "说明并行分析与 GUIDE 重建" bash -c "grep -q '并行条件' .ai-workflow/README.md && grep -q 'inbox/GUIDE.md' .ai-workflow/README.md"
+warnchk "说明批量默认派子代理" bash -c "grep -q '一任务一子代理' .ai-workflow/README.md && grep -q '主代理只做调度' .ai-workflow/README.md"
 chk "任务模板含 front-matter 与验证区" bash -c "grep -q '^id: T-YYYYMMDD-001' .ai-workflow/TEMPLATE.md && grep -q '^## 方案' .ai-workflow/TEMPLATE.md && grep -q '^## 验证记录' .ai-workflow/TEMPLATE.md"
 chk "任务模板区分用户填写与 AI 维护" grep -q '用户填写' .ai-workflow/TEMPLATE.md
+warnchk "任务模板含调度字段" bash -c "grep -q '^execution: serial' .ai-workflow/TEMPLATE.md && grep -q '^parallel_group:' .ai-workflow/TEMPLATE.md && grep -q '^agent_model:' .ai-workflow/TEMPLATE.md"
 chk "说明方案批准与 sha256" bash -c "grep -q '方案版本与批准' .ai-workflow/README.md && grep -q 'shasum -a 256' .ai-workflow/README.md"
 chk "说明人工审查不等于合并" grep -q '人工审查批准（不等于合并）' .ai-workflow/README.md
 chk "说明 worktree 平级目录与复用" bash -c "grep -q '\.ai-worktrees' .ai-workflow/README.md && grep -q 'git worktree list --porcelain' .ai-workflow/README.md"

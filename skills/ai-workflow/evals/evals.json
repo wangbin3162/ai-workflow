@@ -6,9 +6,10 @@
       "name": "init-minimal-structure",
       "prompt": "/ai-workflow init。帮我初始化 AI 任务池工作流，别提交。",
       "fixture": "git 仓库：README.md、已提交的 AGENTS.md、CLAUDE.md、docs/ARCHITECTURE.md、根 .gitignore，没有 .ai-workflow/",
-      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md、CONFIG.md、guide.html 和 inbox/doing/review/done/list；CONFIG 预填当前分支；不生成脚本、config.env、docs、templates、.gitignore；不提交",
+      "expected_output": "只生成 .ai-workflow/README.md、TEMPLATE.md、CONFIG.md、guide.html、inbox/GUIDE.md 和 inbox/doing/review/done/list；CONFIG 预填当前分支；不生成脚本、config.env、docs、templates、.gitignore；不提交",
       "assertions": [
         ".ai-workflow 下只有 README.md、TEMPLATE.md、CONFIG.md、guide.html + 五个目录",
+        "inbox/GUIDE.md 存在且标记为 execution-guide-v1",
         "没有 .ai-workflow/scripts、docs、templates、config.env、.gitignore、.initialized",
         "存在 .ai-workflow/TEMPLATE.md、CONFIG.md 和 .ai-workflow/list/",
         "CONFIG.md 的基准分支等于当前分支，测试命令仍为 TODO",
@@ -47,10 +48,11 @@
       "name": "task-mode-drafts-without-writing",
       "prompt": "/ai-workflow task 把「订单列表样式调整」拆成任务",
       "fixture": "已初始化的仓库；用户没有说写入",
-      "expected_output": "按 README 模板给草稿，不写 inbox，不实现",
+      "expected_output": "按 README 模板给草稿，先判并行条件并给出 GUIDE 顺序摘要，不写 inbox，不实现",
       "assertions": [
         ".ai-workflow/inbox/ 没有新增文件",
-        "回复包含 id/type/priority/risk 与验收标准建议"
+        "回复包含 id/type/priority/risk/execution 与验收标准建议",
+        "回复包含并行组与串行链的一句话摘要"
       ]
     },
     {
@@ -85,11 +87,11 @@
       "name": "single-entry-minimal-assets",
       "prompt": "这个仓库有几个 AI 工作流技能入口？初始化会生成脚本吗？",
       "fixture": "源包 skills/ 与 assets/",
-      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README/TEMPLATE/CONFIG/guide.html + 五目录，不分发脚本",
+      "expected_output": "只有一个 ai-workflow 入口；初始化只生成 README/TEMPLATE/CONFIG/guide.html/inbox/GUIDE.md + 五目录，不分发脚本",
       "assertions": [
         "skills/ 下只有一个 SKILL.md",
         "SKILL.md 的 name 为 ai-workflow",
-        "assets/ 只有 README.md、TEMPLATE.md、CONFIG.md、guide.html",
+        "assets/ 有 README.md、TEMPLATE.md、CONFIG.md、guide.html、GUIDE.md",
         "不再保留旧的脚本版状态机"
       ]
     },
@@ -102,7 +104,48 @@
       "assertions": [
         "待归档任务移入 .ai-workflow/archive/",
         "未合并的分支不被删除",
-        "非 done 状态的任务不被移动"
+        "非 done 状态的任务不被移动",
+        "全部未完成任务清空后 GUIDE.md 只清空内容并保留文件"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "task-guide-merges-existing-unfinished",
+      "prompt": "/ai-workflow task 分析 list/新需求.md 并拆分任务，确认后写入 inbox",
+      "fixture": "已初始化；GUIDE.md 已有两个未完成任务，inbox 有一个 new 任务",
+      "expected_output": "按依赖和文件交叉判定并行/串行，整体重建 GUIDE，合并已有未完成任务与本批任务",
+      "assertions": [
+        "新任务 front-matter 含 execution；可并行任务同一 parallel_group",
+        "GUIDE 保留已有未完成任务且不重复 ID",
+        "GUIDE 不保留 done/archive 任务",
+        "原 list 文件移入 list/archive/"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "parallel-request-spawns-subagents",
+      "prompt": "/ai-workflow 并行 T-20260101-001 T-20260101-002",
+      "fixture": "两个任务 execution: parallel、同组、无依赖且无文件交叉",
+      "expected_output": "无需用户再次提醒，默认一任务一子代理并发执行；主代理只收简报",
+      "assertions": [
+        "为两个任务各启动一个子代理",
+        "子代理默认继承主代理模型",
+        "主代理不直接修改业务代码",
+        "不满足并行条件时降级串行并说明"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "run-all-serial-scheduler",
+      "prompt": "/ai-workflow run-all",
+      "fixture": "GUIDE 中 5 个 new 任务，前 3 个同组并行，后 2 个串行",
+      "expected_output": "run-all 按 GUIDE 行序全部串行：一任务一子代理逐个接力，不自动把前 3 个并行组改成并发",
+      "assertions": [
+        "主代理只做调度，不读完整源码 diff",
+        "每个任务一个子代理并返回规定简报",
+        "不因 execution: parallel 自动并发，只有用户明确要求并行才并发",
+        "后序串行任务 base_ref 接力前序分支",
+        "needs-discussion 时停止依赖链并汇报"
       ]
     }
   ]

@@ -25,7 +25,7 @@ found=0
 for dir in inbox doing review done; do
   dir_path=".ai-workflow/$dir"
   [ -d "$dir_path" ] || continue
-  for f in "$dir_path"/*.md; do
+  for f in "$dir_path"/T-*.md; do
     [ -f "$f" ] || continue
     found=1
     fname="$(basename "$f" .md)"
@@ -115,6 +115,39 @@ for dir in inbox doing review done; do
     fi
   done
 done
+
+# ── 8. 任务池顺序指南 ──
+guide_file=".ai-workflow/inbox/GUIDE.md"
+if [ -f "$guide_file" ]; then
+  guide_ids="$(awk '/^## 当前顺序/{f=1;next} /^## /{f=0} f' "$guide_file" | grep -oE 'T-[0-9]{8}-[0-9]{3}' | sort -u)"
+  dup_ids="$(awk '/^## 当前顺序/{f=1;next} /^## /{f=0} f' "$guide_file" | grep -oE 'T-[0-9]{8}-[0-9]{3}' | sort | uniq -d)"
+  if [ -n "$dup_ids" ]; then
+    bad "任务池指南：存在重复任务 ID（$(printf '%s' "$dup_ids" | tr '\n' ' ')）"
+  else
+    ok "任务池指南：任务 ID 不重复"
+  fi
+
+  stale=0
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    if ! find .ai-workflow/inbox .ai-workflow/doing .ai-workflow/review \
+      -maxdepth 1 -type f -name "$id.md" 2>/dev/null | grep -q .; then
+      bad "任务池指南：${id} 已不在未完成任务目录"
+      stale=1
+    fi
+  done <<< "$guide_ids"
+  [ "$stale" -eq 0 ] && ok "任务池指南：未引用已完成或已归档任务"
+
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    id="$(basename "$f" .md)"
+    if ! printf '%s\n' "$guide_ids" | grep -qx "$id"; then
+      warn "任务池指南：未列入 ${id}"
+    fi
+  done <<< "$(find .ai-workflow/inbox .ai-workflow/doing .ai-workflow/review -maxdepth 1 -type f -name 'T-*.md' 2>/dev/null)"
+else
+  warn "缺少 .ai-workflow/inbox/GUIDE.md：无法核对任务池顺序"
+fi
 
 if [ "$found" -eq 0 ]; then
   echo "没有找到任务文件"

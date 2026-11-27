@@ -14,7 +14,7 @@
 ├── TEMPLATE.md    # 任务模板
 ├── CONFIG.md      # 项目配置：基准分支 / 测试命令 / 依赖安装
 ├── guide.html     # 流转图解；执行规则以 README 为准
-├── inbox/         # new / needs-discussion / blocked
+├── inbox/         # new / needs-discussion / blocked；GUIDE.md 是常驻任务池顺序
 ├── doing/         # claimed
 ├── review/        # needs_review / review_approved
 ├── done/          # done
@@ -50,7 +50,11 @@
 ## 3. AI 执行方式
 
 没有随初始化分发的脚本。`list/` 只是输入区：用户放任务列表/方案草稿，
-`/ai-workflow task` 读取后按 TEMPLATE 拆分，默认只出草稿，用户确认后才写 inbox。
+`/ai-workflow task` 读取后先分析并行条件，再按 TEMPLATE 拆分；默认只出草稿，
+用户确认后才写 inbox，并整体重建 `inbox/GUIDE.md`。
+
+`inbox/GUIDE.md` 是任务池的顺序视图，不是任务文件：只记录尚未进入 `done/` 的任务；
+拆分时合并现有未完成任务，完成归档后移除，全部完成后只清空内容，文件永久保留。
 
 AI 按 README 直接执行：
 
@@ -66,6 +70,16 @@ AI 按 README 直接执行：
 7. 阻塞/拒绝 → status `blocked`、移回 inbox、删除锁、保留 worktree。
 
 AI 不使用额外的状态工具；一致性靠 README 规则与人工检查。
+
+### 3.1 子代理调度
+
+- 并行任务、`run-all` 和“推进全部任务”默认一任务一子代理；单任务默认当前代理直接执行。
+- 并行只允许同一 `parallel_group` 且无依赖、无同文件写冲突、无共享可变接口/迁移/配置/夹具的任务。
+- `run-all` / “推进全部任务”即使指南含并行组也全部串行，不自动并发；并行必须明确要求。
+- 串行由主代理只做调度：按 `GUIDE.md` 顺序派发，收简报后确认状态，再接力下一个。
+- 主代理默认只读取指南、任务 front-matter、子代理简报和 git 状态，不把源码 diff 与完整日志带入主线上下文。
+- 子代理默认继承主代理模型；任务 `agent_model` 或用户本次指定可覆盖。
+- 宿主不支持子代理或模型选择时，停在调度前并如实说明，不能静默改成单会话跑批。
 
 ## 4. 锁
 
@@ -94,13 +108,13 @@ AI 不使用额外的状态工具；一致性靠 README 规则与人工检查。
 
 ## 7. 验证状态
 
-**已验证**（`bash scripts/test-ai-workflow.sh`，临时仓库，83 项全过）：
-初始化只生成 README/TEMPLATE/CONFIG/guide.html + 五目录；不生成 scripts/docs/config.env/.gitignore；
-不修改 AGENTS/CLAUDE/docs/根 .gitignore；幂等并保留用户 README/TEMPLATE/CONFIG/guide.html；
+**已验证**（`bash scripts/test-ai-workflow.sh`，临时仓库，106 项全过）：
+初始化只生成 README/TEMPLATE/CONFIG/guide.html/inbox/GUIDE.md + 五目录；不生成 scripts/docs/config.env/.gitignore；
+不修改 AGENTS/CLAUDE/docs/根 .gitignore；幂等并保留用户 README/TEMPLATE/CONFIG/guide.html/GUIDE.md；
 缺失的 guide.html 会补上且不改已有 README；CONFIG 预填当前分支；未标记 README 冲突不写入；
 旧 v1 结构不自动升级；旧 `.ai/` 只警告；verify 能发现结构缺失（含缺 guide.html）；
-单一技能入口；assets 为 README/TEMPLATE/CONFIG/guide.html；
-check.sh 运行时一致性检查、status.sh 任务总览统计与 archive.sh 归档清理均通过回归测试。
+单一技能入口；assets 为 README/TEMPLATE/CONFIG/guide.html/GUIDE.md；
+check.sh 校验任务池指南重复/过期引用，status.sh 不把 GUIDE 当任务，archive.sh 清理并重排指南。
 
 **未验证 / 限制**：
 
@@ -108,4 +122,5 @@ check.sh 运行时一致性检查、status.sh 任务总览统计与 archive.sh �
 - 锁在会话异常退出后的自动恢复（需人工确认并删除）；
 - squash/rebase 的内容等价无法用 sha 证明；
 - 没有 `.claude/settings.json` 的 permissions/hook 层护栏；
+- 子代理是否真实并发、模型是否可指定取决于宿主 Agent；
 - 真实 `claude -p` 未验证；本工作流不随初始化分发 runner。

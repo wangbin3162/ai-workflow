@@ -45,6 +45,7 @@ fm_val() {
 
 DONE_DIR=".ai-workflow/done"
 ARCHIVE_DIR=".ai-workflow/archive"
+GUIDE_FILE=".ai-workflow/inbox/GUIDE.md"
 
 if [ ! -d "$DONE_DIR" ]; then
   echo "暂无 done/ 目录"
@@ -93,6 +94,7 @@ mkdir -p "$ARCHIVE_DIR"
 archived_count=0
 wt_removed=0
 br_deleted=0
+archived_ids=""
 
 for item in "${tasks[@]}"; do
   IFS='|' read -r id f commit target <<< "$item"
@@ -105,6 +107,7 @@ for item in "${tasks[@]}"; do
 
   mv "$f" "$target_archive_dir/${id}.md"
   archived_count=$((archived_count+1))
+  archived_ids="${archived_ids}${id},"
   say ARCHIVE "$id -> $target_archive_dir/${id}.md"
 
   # 同步更新 HISTORY.md 中的记录（若存在）
@@ -163,6 +166,86 @@ for item in "${tasks[@]}"; do
     say UNLOCK "清理残留锁 $lock_dir"
   fi
 done
+
+if [ -f "$GUIDE_FILE" ] && [ -n "$archived_ids" ]; then
+  if ! find .ai-workflow/inbox .ai-workflow/doing .ai-workflow/review \
+       -maxdepth 1 -type f -name 'T-*.md' 2>/dev/null | grep -q .; then
+    cat > "$GUIDE_FILE" << 'EOF'
+<!-- ai-workflow:execution-guide-v1 — 任务池顺序指南；常驻文件，只重建，不删除、不追加历史 -->
+# 任务池执行指南
+
+执行摘要：暂无未完成任务。
+
+## 当前顺序
+
+<!--
+格式：
+1. [并行 P1] T-YYYYMMDD-001
+2. [并行 P1] T-YYYYMMDD-002
+3. [串行] T-YYYYMMDD-003
+
+规则：
+- 行序就是任务池执行顺序；同一并行组可以同时派发，串行任务按行序接力。
+- 拆分/入库/任务完成归档时重建本文件，只保留尚未进入 done/ 的任务。
+- 不重复任务 ID，不追加历史批次，不复制任务正文。
+- 全部任务完成后只清空为「暂无未完成任务」，本文件永久保留。
+-->
+EOF
+    say RESET "任务池指南已清空，文件保留：$GUIDE_FILE"
+  else
+    guide_tmp="${GUIDE_FILE}.tmp.$$"
+    awk -v drop="$archived_ids" '
+      BEGIN {
+        n = split(drop, ids, ",")
+        for (i = 1; i <= n; i++) if (ids[i] != "") dropped[ids[i]] = 1
+        in_order = 0
+        seq = 0
+      }
+      /^## 当前顺序/ { in_order = 1; print; next }
+      in_order && /^## / { in_order = 0 }
+      in_order && /^[0-9]+\. / {
+        if (match($0, /T-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]/)) {
+          id = substr($0, RSTART, RLENGTH)
+          if (id in dropped) next
+        }
+        seq++
+        sub(/^[0-9]+\. /, seq ". ", $0)
+      }
+      { print }
+    ' "$GUIDE_FILE" > "$guide_tmp"
+
+    summary="$(awk '
+      /^## 当前顺序/ { f = 1; next }
+      f && /^## / { exit }
+      f && /^[0-9]+\. / {
+        if (!match($0, /\[[^]]+\]/)) next
+        tag = substr($0, RSTART, RLENGTH)
+        if (!match($0, /T-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9]/)) next
+        id = substr($0, RSTART, RLENGTH)
+        join = (tag ~ /并行/) ? "、" : " → "
+        if (!(tag in seen)) { seen[tag] = 1; order[++n] = tag }
+        vals[tag] = vals[tag] (vals[tag] == "" ? "" : join) id
+      }
+      END {
+        for (i = 1; i <= n; i++) {
+          tag = order[i]
+          printf "%s%s: %s", (i == 1 ? "" : "；"), tag, vals[tag]
+        }
+        if (n > 0) printf "。"
+      }
+    ' "$guide_tmp")"
+
+    if [ -n "$summary" ]; then
+      awk -v summary="$summary" '
+        /^执行摘要：/ { print "执行摘要：" summary; next }
+        { print }
+      ' "$guide_tmp" > "${guide_tmp}.2"
+      mv "${guide_tmp}.2" "$guide_tmp"
+    fi
+    mv "$guide_tmp" "$GUIDE_FILE"
+    say GUIDE "任务池指南已移除归档任务并重排：$GUIDE_FILE"
+  fi
+fi
 
 echo
 say DONE "归档完成：归档任务 ${archived_count} 个，移除 worktree ${wt_removed} 个，删除已合并分支 ${br_deleted} 个"
